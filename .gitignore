@@ -1,0 +1,53 @@
+# macOS
+.DS_Store
+
+# Xcode user state
+DerivedData/
+build/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+**/xcuserdata/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+
+# Apple toolchain artifacts
+*.dSYM
+*.dSYM.zip
+*.ipa
+*.xcarchive
+*.xcodeproj/*/SourcePackages/
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+
+# Arduino / ESP32 local build artifacts
+.arduinoIDE/
+sketch.yaml
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+*.ino.cpp
+*.ino.cpp.d
+*.partitions.bin
+*.bootloader.bin
+*.merged.bin
+
+# Local editor state
+.idea/
+.vscode/
+*.swp
+*.swo

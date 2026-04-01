@@ -1,0 +1,75 @@
+# ESP32-S3 Zero profile:
+# - keep all module wiring within GPIO1-GPIO13
+# - do not rely on the onboard WS2812 on GPIO21
+# - status_led assumes an optional external LED on GPIO13
+schema_version: 1
+
+module:
+  type_id: servo_180_v1
+  display_name: Servo Module
+  category: actuator
+  description: Positional control for a hobby servo.
+  manufacturer: RetroSmart
+  firmware_family: retrosmart_esp32_ble_v1
+
+identity:
+  ble:
+    service_uuid: "d973f2e0-71a7-4e26-a72a-4a130b83a001"
+    device_type_key: servo_180_v1
+    exposes_unique_id: true
+
+ui:
+  icon_suggestions: [move.3d, dial.low, switch.2]
+  device_page:
+    layout: controls_primary
+    widgets:
+      - type: slider
+        id: servo_angle
+        label: Angle
+        min: 0
+        max: 180
+        action: set_servo_angle
+        source: servo_angle
+      - type: reading
+        id: servo_angle_readback
+        label: Current Angle
+        source: servo_angle
+        unit: degrees
+  settings_page:
+    show_config_text: true
+    show_pinout: true
+    editable_fields: [custom_name, custom_icon, assigned_type]
+
+capabilities:
+  actions:
+    - id: set_servo_angle
+      label: Set Servo Angle
+      kind: command
+      payload:
+        type: integer
+        min: 0
+        max: 180
+  readings:
+    - id: servo_angle
+      label: Servo Angle
+      type: integer
+      unit: degrees
+
+automation:
+  triggers: []
+  actions: [set_servo_angle]
+
+hardware:
+  board: esp32_s3_zero
+  interfaces:
+    servo: hobby_pwm
+  pinout:
+    servo_signal: GPIO7
+    status_led: GPIO13
+
+firmware:
+  transport: ble
+  codegen:
+    template: servo_180
+    required_libraries: [BLEDevice, ArduinoJson, ESP32Servo]
+    update_model: command_based

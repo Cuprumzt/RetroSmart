@@ -1,0 +1,97 @@
+# RetroSmart v1 air quality score
+# This is a documented prototype score, not an official AQI claim.
+# Base score is derived from eCO2 and then increased by a TVOC penalty.
+# Final bands:
+# 0-50 Excellent
+# 51-100 Good
+# 101-150 Fair
+# 151-200 Moderate
+# 201-300 Poor
+# 301-500 Very Poor
+# ESP32-S3 Zero profile:
+# - keep all module wiring within GPIO1-GPIO13
+# - do not rely on the onboard WS2812 on GPIO21
+# - status_led assumes an optional external LED on GPIO13
+schema_version: 1
+
+module:
+  type_id: air_quality_ens160_aht21_v1
+  display_name: Air Quality Module
+  category: sensor
+  description: Air quality sensing using ENS160 and AHT21 over I2C.
+  manufacturer: RetroSmart
+  firmware_family: retrosmart_esp32_ble_v1
+
+identity:
+  ble:
+    service_uuid: "d973f2e0-71a7-4e26-a72a-4a130b83a001"
+    device_type_key: air_quality_ens160_aht21_v1
+    exposes_unique_id: true
+
+ui:
+  icon_suggestions: [aqi.medium, humidity, gauge.with.needle]
+  device_page:
+    layout: controls_primary
+    widgets:
+      - type: reading
+        id: aqi_score
+        label: Air Quality Score
+        source: aqi_score
+      - type: reading
+        id: aqi_label
+        label: Air Quality
+        source: aqi_label
+      - type: reading
+        id: eco2_ppm
+        label: eCO2
+        source: eco2_ppm
+        unit: ppm
+      - type: reading
+        id: tvoc_ppb
+        label: TVOC
+        source: tvoc_ppb
+        unit: ppb
+  settings_page:
+    show_config_text: true
+    show_pinout: true
+    editable_fields: [custom_name, custom_icon, assigned_type]
+
+capabilities:
+  actions: []
+  readings:
+    - id: aqi_score
+      label: Air Quality Score
+      type: integer
+    - id: aqi_label
+      label: Air Quality Label
+      type: enum
+      values: [Excellent, Good, Fair, Moderate, Poor, Very Poor]
+    - id: eco2_ppm
+      label: eCO2
+      type: integer
+      unit: ppm
+    - id: tvoc_ppb
+      label: TVOC
+      type: integer
+      unit: ppb
+
+automation:
+  triggers: [aqi_score, aqi_label, eco2_ppm, tvoc_ppb]
+  actions: []
+
+hardware:
+  board: esp32_s3_zero
+  interfaces:
+    sensor_bus: i2c
+    env_sensor: ens160_aht21
+  pinout:
+    i2c_sda: GPIO5
+    i2c_scl: GPIO6
+    status_led: GPIO13
+
+firmware:
+  transport: ble
+  codegen:
+    template: air_quality_ens160_aht21
+    required_libraries: [BLEDevice, ArduinoJson, Wire, ScioSense_ENS160, Adafruit_AHTX0]
+    update_model: streaming

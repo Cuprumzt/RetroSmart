@@ -1,0 +1,92 @@
+# RetroSmart v1 built-in module definition
+# ESP32-S3 Zero profile:
+# - keep all module wiring within GPIO1-GPIO13
+# - do not rely on the onboard WS2812 on GPIO21
+# - status_led assumes an optional external LED on GPIO13
+schema_version: 1
+
+module:
+  type_id: dc_motor_drv8833_v1
+  display_name: DC Motor Module
+  category: actuator
+  description: Bidirectional DC motor control using a DRV8833 driver.
+  manufacturer: RetroSmart
+  firmware_family: retrosmart_esp32_ble_v1
+
+identity:
+  ble:
+    service_uuid: "d973f2e0-71a7-4e26-a72a-4a130b83a001"
+    device_type_key: dc_motor_drv8833_v1
+    exposes_unique_id: true
+
+ui:
+  icon_suggestions: [fanblades, move.3d, switch.2]
+  device_page:
+    layout: controls_primary
+    widgets:
+      - type: hold_button
+        id: motor_forward
+        label: Forward
+        action: motor_run_forward
+        release_action: motor_stop
+      - type: hold_button
+        id: motor_reverse
+        label: Reverse
+        action: motor_run_reverse
+        release_action: motor_stop
+      - type: button
+        id: motor_stop
+        label: Stop
+        action: motor_stop
+      - type: reading
+        id: motor_state
+        label: Motor State
+        source: motor_state
+  settings_page:
+    show_config_text: true
+    show_pinout: true
+    editable_fields: [custom_name, custom_icon, assigned_type]
+
+capabilities:
+  actions:
+    - id: motor_run_forward
+      label: Run Forward
+      kind: momentary
+      payload:
+        type: none
+    - id: motor_run_reverse
+      label: Run Reverse
+      kind: momentary
+      payload:
+        type: none
+    - id: motor_stop
+      label: Stop
+      kind: command
+      payload:
+        type: none
+  readings:
+    - id: motor_state
+      label: Motor State
+      type: enum
+      values: [stopped, forward, reverse, timed_out]
+
+automation:
+  triggers: []
+  actions: [motor_run_forward, motor_run_reverse, motor_stop]
+
+hardware:
+  board: esp32_s3_zero
+  interfaces:
+    motor_driver: drv8833
+  pinout:
+    motor_pwm: GPIO7
+    motor_in1: GPIO8
+    motor_in2: GPIO9
+    status_led: GPIO13
+
+firmware:
+  transport: ble
+  codegen:
+    template: dc_motor_drv8833
+    required_libraries: [BLEDevice, ArduinoJson]
+    update_model: command_based
