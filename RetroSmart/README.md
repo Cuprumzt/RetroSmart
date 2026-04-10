@@ -1,10 +1,12 @@
-# RetroSmart v1 Prototype
+# RetroSmart iOS App
 
-RetroSmart is a local-first iOS + ESP32 retrofit smart-home prototype. Each physical module has its own ESP32, BLE identity, YAML type definition, and module-specific UI rendered by the app.
+This directory contains the iPhone app for RetroSmart.
 
-The persisted product requirements document for the current prototype lives at [RetroSmart-PRD.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/code/docs/RetroSmart-PRD.md).
+RetroSmart as a whole is framed in the root [README.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/README.md). This file is the app-focused companion document.
 
-## What is included
+The persisted product requirements document lives at [docs/RetroSmart-PRD.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs/RetroSmart-PRD.md).
+
+## App Scope
 
 - SwiftUI iOS app with three tabs: `Devices`, `Automations`, and `RetroSmart AI`
 - SwiftData persistence for devices, imported YAML type definitions, and automation rules
@@ -17,9 +19,9 @@ The persisted product requirements document for the current prototype lives at [
 - BLE manager using a fixed RetroSmart JSON-over-BLE contract
 - Lightweight config-driven device page renderer
 - Foreground-only automation engine
-- Shared Arduino BLE scaffolding and initial firmware sketches for the four module types
+- Shared Arduino BLE scaffolding and firmware sketches for the built-in module types
 
-## App architecture
+## App Architecture
 
 - `RetroSmart/App`
   - app entry point and the shared app model
@@ -40,7 +42,7 @@ The app uses a simple runtime flow:
 4. Device detail pages render widget primitives from YAML.
 5. `AutomationEngine` evaluates simple rules only while the app is foregrounded.
 
-## BLE contract
+## BLE Contract
 
 RetroSmart v1 uses UTF-8 JSON strings over BLE characteristics.
 
@@ -88,7 +90,7 @@ State payloads use a stable envelope:
 }
 ```
 
-## Config format
+## Config Format
 
 YAML is the source-of-truth authoring format. All module types include:
 
@@ -103,7 +105,7 @@ YAML is the source-of-truth authoring format. All module types include:
 
 Imported YAML is validated on-device. If a new import uses an existing `type_id`, it replaces that definition globally for all devices assigned to it. Imported configs cannot be deleted while any device still references them.
 
-## Running the app
+## Running The App
 
 1. Open [RetroSmart.xcodeproj](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/RetroSmart/RetroSmart.xcodeproj) in Xcode.
 2. Select an iOS 17+ simulator or device.
@@ -113,7 +115,7 @@ Imported YAML is validated on-device. If a new import uses an existing `type_id`
    - import a YAML file from Files
    - paste raw YAML
 
-## Flashing firmware
+## Firmware Entry Points
 
 Firmware lives under [firmware](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware).
 
@@ -135,7 +137,14 @@ Firmware lives under [firmware](/Users/tong/Library/CloudStorage/OneDrive-Person
 6. Flash the sketch to the matching ESP32 module. If the board does not auto-enter download mode, hold `BOOT` while connecting or resetting it.
 7. Open the serial monitor at `115200`, then power the module and onboard it from the app.
 
-## Current limitations
+## Related Docs
+
+- [docs/Getting-Started.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs/Getting-Started.md)
+- [docs/System-Architecture.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs/System-Architecture.md)
+- [docs/Module-Authoring-Guide.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs/Module-Authoring-Guide.md)
+- [docs/Contributing-Guide.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs/Contributing-Guide.md)
+
+## Current Limitations
 
 - Automations run only while the app is foregrounded.
 - The YAML parser is a deliberately small subset parser aimed at the v1 schema, not a full YAML implementation.
