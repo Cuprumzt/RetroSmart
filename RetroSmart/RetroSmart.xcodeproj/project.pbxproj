@@ -37,7 +37,7 @@
 		00000000000000000000021C /* dc_motor_drv8833_v1.yaml in Resources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000011C /* dc_motor_drv8833_v1.yaml */; };
 		00000000000000000000021D /* servo_180_v1.yaml in Resources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000011D /* servo_180_v1.yaml */; };
 		00000000000000000000021E /* temperature_ds18b20_v1.yaml in Resources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000011E /* temperature_ds18b20_v1.yaml */; };
-		00000000000000000000021F /* air_quality_ens160_aht21_v1.yaml in Resources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000011F /* air_quality_ens160_aht21_v1.yaml */; };
+		00000000000000000000021F /* air_quality_sgp40_v1.yaml in Resources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000011F /* air_quality_sgp40_v1.yaml */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -72,7 +72,7 @@
 		00000000000000000000011C /* dc_motor_drv8833_v1.yaml */ = {isa = PBXFileReference; lastKnownFileType = text; path = dc_motor_drv8833_v1.yaml; sourceTree = "<group>"; };
 		00000000000000000000011D /* servo_180_v1.yaml */ = {isa = PBXFileReference; lastKnownFileType = text; path = servo_180_v1.yaml; sourceTree = "<group>"; };
 		00000000000000000000011E /* temperature_ds18b20_v1.yaml */ = {isa = PBXFileReference; lastKnownFileType = text; path = temperature_ds18b20_v1.yaml; sourceTree = "<group>"; };
-		00000000000000000000011F /* air_quality_ens160_aht21_v1.yaml */ = {isa = PBXFileReference; lastKnownFileType = text; path = air_quality_ens160_aht21_v1.yaml; sourceTree = "<group>"; };
+		00000000000000000000011F /* air_quality_sgp40_v1.yaml */ = {isa = PBXFileReference; lastKnownFileType = text; path = air_quality_sgp40_v1.yaml; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -223,7 +223,7 @@
 				00000000000000000000011C /* dc_motor_drv8833_v1.yaml */,
 				00000000000000000000011D /* servo_180_v1.yaml */,
 				00000000000000000000011E /* temperature_ds18b20_v1.yaml */,
-				00000000000000000000011F /* air_quality_ens160_aht21_v1.yaml */,
+				00000000000000000000011F /* air_quality_sgp40_v1.yaml */,
 			);
 			path = BuiltInConfigs;
 			sourceTree = "<group>";
@@ -290,7 +290,7 @@
 				00000000000000000000021C /* dc_motor_drv8833_v1.yaml in Resources */,
 				00000000000000000000021D /* servo_180_v1.yaml in Resources */,
 				00000000000000000000021E /* temperature_ds18b20_v1.yaml in Resources */,
-				00000000000000000000021F /* air_quality_ens160_aht21_v1.yaml in Resources */,
+				00000000000000000000021F /* air_quality_sgp40_v1.yaml in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

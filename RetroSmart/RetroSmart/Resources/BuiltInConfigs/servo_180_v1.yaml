@@ -32,7 +32,7 @@ ui:
         source: servo_angle
       - type: reading
         id: servo_angle_readback
-        label: Current Angle
+        label: Current Position
         source: servo_angle
         unit: degrees
   settings_page:

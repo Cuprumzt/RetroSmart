@@ -8,6 +8,7 @@ struct AutomationsListView: View {
 
     @State private var presentedRule: AutomationRuleRecord?
     @State private var creatingNewRule = false
+    @State private var errorMessage: String?
 
     var body: some View {
         List {
@@ -33,8 +34,12 @@ struct AutomationsListView: View {
                     .buttonStyle(.plain)
                 }
                 .onDelete { indexSet in
-                    indexSet.map { automations[$0] }.forEach(modelContext.delete)
-                    try? modelContext.save()
+                    do {
+                        indexSet.map { automations[$0] }.forEach(modelContext.delete)
+                        try modelContext.save()
+                    } catch {
+                        errorMessage = error.localizedDescription
+                    }
                 }
             }
         }
@@ -59,6 +64,24 @@ struct AutomationsListView: View {
                 AutomationEditorView()
             }
         }
+        .alert("Automations", isPresented: errorAlertIsPresented) {
+            Button("OK") {
+                errorMessage = nil
+            }
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+
+    private var errorAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { errorMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    errorMessage = nil
+                }
+            }
+        )
     }
 }
 

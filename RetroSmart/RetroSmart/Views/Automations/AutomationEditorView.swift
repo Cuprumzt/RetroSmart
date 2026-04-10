@@ -18,6 +18,7 @@ struct AutomationEditorView: View {
     @State private var actionID = ""
     @State private var actionValue = ""
     @State private var isEnabled = true
+    @State private var errorMessage: String?
 
     init(editingRule: AutomationRuleRecord? = nil) {
         self.editingRule = editingRule
@@ -160,6 +161,13 @@ struct AutomationEditorView: View {
                 actionID = actionOptions.first?.id ?? ""
             }
         }
+        .alert("Unable to Save Automation", isPresented: errorAlertIsPresented) {
+            Button("OK") {
+                errorMessage = nil
+            }
+        } message: {
+            Text(errorMessage ?? "")
+        }
     }
 
     private var canSave: Bool {
@@ -214,7 +222,22 @@ struct AutomationEditorView: View {
             )
         }
 
-        try? modelContext.save()
-        dismiss()
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private var errorAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { errorMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    errorMessage = nil
+                }
+            }
+        )
     }
 }

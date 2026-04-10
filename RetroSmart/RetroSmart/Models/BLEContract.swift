@@ -141,6 +141,21 @@ enum JSONValue: Codable, Equatable, Hashable {
             return nil
         }
     }
+
+    var boolValue: Bool? {
+        switch self {
+        case .bool(let value):
+            return value
+        case .string(let value):
+            return Bool(value.lowercased())
+        case .int(let value):
+            return value != 0
+        case .double(let value):
+            return value != 0
+        default:
+            return nil
+        }
+    }
 }
 
 enum DeviceConnectionState: String, CaseIterable {

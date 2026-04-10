@@ -10,11 +10,30 @@ struct AIPlaceholderView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("RetroSmart AI")
-                    .font(.largeTitle.weight(.semibold))
-
-                Text("This tab is intentionally a placeholder in v1. It communicates the future product direction without adding unfinished generation workflows into the prototype.")
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("RetroSmart AI")
+                        .font(.largeTitle.weight(.semibold))
+                    Text("This stays intentionally non-functional in v1. It marks the future workflow surface without hiding the current prototype behind unfinished generation features.")
+                        .foregroundStyle(.secondary)
+                }
+                .padding(22)
+                .background(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.orange.opacity(0.2),
+                                    Color(uiColor: .secondarySystemBackground),
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .stroke(Color.orange.opacity(0.18), lineWidth: 1)
+                }
 
                 ForEach(cards, id: \.title) { card in
                     VStack(alignment: .leading, spacing: 10) {
@@ -25,12 +44,17 @@ struct AIPlaceholderView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(18)
-                    .background(Color.secondary.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .background(Color(uiColor: .secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                    }
                 }
             }
             .padding()
         }
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("RetroSmart AI")
     }
 }

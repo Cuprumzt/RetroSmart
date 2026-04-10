@@ -1,4 +1,3 @@
-# RetroSmart v1 built-in module definition
 # ESP32-S3 Zero profile:
 # - keep all module wiring within GPIO1-GPIO13
 # - do not rely on the onboard WS2812 on GPIO21
@@ -20,24 +19,20 @@ identity:
     exposes_unique_id: true
 
 ui:
-  icon_suggestions: [fanblades, move.3d, switch.2]
+  icon_suggestions: [fanblades, switch.2, move.3d]
   device_page:
-    layout: controls_primary
+    layout: motor_directional
     widgets:
-      - type: hold_button
-        id: motor_forward
-        label: Forward
-        action: motor_run_forward
-        release_action: motor_stop
       - type: hold_button
         id: motor_reverse
         label: Reverse
         action: motor_run_reverse
         release_action: motor_stop
-      - type: button
-        id: motor_stop
-        label: Stop
-        action: motor_stop
+      - type: hold_button
+        id: motor_forward
+        label: Forward
+        action: motor_run_forward
+        release_action: motor_stop
       - type: reading
         id: motor_state
         label: Motor State
@@ -68,7 +63,7 @@ capabilities:
     - id: motor_state
       label: Motor State
       type: enum
-      values: [stopped, forward, reverse, timed_out]
+      values: [stopped, forward, reverse]
 
 automation:
   triggers: []

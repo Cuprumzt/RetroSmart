@@ -57,6 +57,23 @@ struct ConfigLibraryView: View {
                                 Label("Delete", systemImage: "trash")
                             }
                         }
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(record.typeID)
+                            Text(record.sourceName)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("Stored import is no longer valid and can only be deleted.")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                        }
+                        .swipeActions {
+                            Button(role: .destructive) {
+                                delete(record)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
                 }
             }
@@ -69,7 +86,7 @@ struct ConfigLibraryView: View {
                 }
             }
         }
-        .alert("Type Library", isPresented: .constant(errorMessage != nil), actions: {
+        .alert("Type Library", isPresented: errorAlertIsPresented, actions: {
             Button("OK") {
                 errorMessage = nil
             }
@@ -93,6 +110,17 @@ struct ConfigLibraryView: View {
             errorMessage = error.localizedDescription
         }
     }
+
+    private var errorAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { errorMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    errorMessage = nil
+                }
+            }
+        )
+    }
 }
 
 private struct ConfigDetailView: View {
@@ -100,7 +128,7 @@ private struct ConfigDetailView: View {
 
     var body: some View {
         List {
-            Section("Metadata") {
+            Section("Module Information") {
                 LabeledContent("Display Name", value: loadedConfig.config.module.displayName)
                 LabeledContent("Type ID", value: loadedConfig.config.module.typeID)
                 LabeledContent("Category", value: loadedConfig.config.module.category)

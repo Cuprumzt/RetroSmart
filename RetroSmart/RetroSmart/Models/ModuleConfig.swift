@@ -125,6 +125,7 @@ enum WidgetType: String {
     case holdButton = "hold_button"
     case slider
     case reading
+    case toggle
 }
 
 struct WidgetConfig: Equatable, Identifiable {
@@ -139,6 +140,8 @@ struct WidgetConfig: Equatable, Identifiable {
     let text: String?
     let unit: String?
     let widgets: [WidgetConfig]
+    let visibleWhenSource: String?
+    let visibleWhenEquals: String?
 
     init(yaml: YAMLValue) throws {
         let dictionary = try yaml.requireDictionary(context: "ui.device_page.widgets[]")
@@ -158,6 +161,18 @@ struct WidgetConfig: Equatable, Identifiable {
         text = dictionary.string("text")
         unit = dictionary.string("unit")
         widgets = try (dictionary.array("widgets") ?? []).map { try WidgetConfig(yaml: $0) }
+        visibleWhenSource = dictionary.string("visible_when_source")
+        if let boolValue = dictionary.bool("visible_when_equals") {
+            visibleWhenEquals = boolValue ? "true" : "false"
+        } else if let stringValue = dictionary.string("visible_when_equals") {
+            visibleWhenEquals = stringValue
+        } else if let intValue = dictionary.int("visible_when_equals") {
+            visibleWhenEquals = String(intValue)
+        } else if let doubleValue = dictionary.double("visible_when_equals") {
+            visibleWhenEquals = String(doubleValue)
+        } else {
+            visibleWhenEquals = nil
+        }
     }
 }
 

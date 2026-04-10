@@ -62,7 +62,9 @@ struct StatusBadge: View {
             switch state {
             case .connected:
                 return "Connected"
-            case .connecting, .disconnected:
+            case .connecting:
+                return "Connecting"
+            case .disconnected:
                 return "Disconnected"
             }
         case .standard, .iconOnly:

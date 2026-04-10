@@ -10,7 +10,7 @@ final class ModuleConfigRegistry: ObservableObject {
         "dc_motor_drv8833_v1",
         "servo_180_v1",
         "temperature_ds18b20_v1",
-        "air_quality_ens160_aht21_v1",
+        "air_quality_sgp40_v1",
     ]
 
     func reload(importedConfigs: [ImportedDeviceTypeRecord]) {

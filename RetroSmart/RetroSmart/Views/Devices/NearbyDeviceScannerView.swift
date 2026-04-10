@@ -46,6 +46,7 @@ struct NearbyDeviceScannerView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .disabled(resolvingPeripheralID != nil)
                 }
             }
 
@@ -102,7 +103,7 @@ struct NearbyDeviceScannerView: View {
                 }
             }
         }
-        .alert("Unable to Read Device", isPresented: .constant(errorMessage != nil), actions: {
+        .alert("Unable to Read Device", isPresented: errorAlertIsPresented, actions: {
             Button("OK") {
                 errorMessage = nil
             }
@@ -147,5 +148,16 @@ struct NearbyDeviceScannerView: View {
         default:
             return "Farther away"
         }
+    }
+
+    private var errorAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { errorMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    errorMessage = nil
+                }
+            }
+        )
     }
 }

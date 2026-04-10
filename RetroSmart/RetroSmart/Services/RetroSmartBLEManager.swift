@@ -75,6 +75,7 @@ final class RetroSmartBLEManager: NSObject, ObservableObject {
             debugMessages = Array(debugMessages.suffix(120))
         }
 
+        updateNearbyList()
         beginScanningIfPossible()
     }
 
@@ -117,6 +118,15 @@ final class RetroSmartBLEManager: NSObject, ObservableObject {
         if let peripheralIdentifier {
             autoConnectInFlight.remove(peripheralIdentifier)
         }
+        updateNearbyList()
+        beginScanningIfPossible()
+    }
+
+    func markDeviceRemoved(deviceID: String) {
+        knownDevices.removeValue(forKey: deviceID)
+        connectionStates.removeValue(forKey: deviceID)
+        liveStates.removeValue(forKey: deviceID)
+        updateNearbyList()
         beginScanningIfPossible()
     }
 
@@ -135,10 +145,32 @@ final class RetroSmartBLEManager: NSObject, ObservableObject {
         do {
             let data = try encoder.encode(envelope)
             context.peripheral.writeValue(data, for: characteristic, type: .withResponse)
+            applyOptimisticState(for: deviceID, actionID: actionID, payload: payload)
             appendDebug("Sent action \(actionID) to \(deviceID)")
         } catch {
             appendDebug("Failed to encode command \(actionID): \(error.localizedDescription)")
         }
+    }
+
+    private func applyOptimisticState(for deviceID: String, actionID: String, payload: [String: JSONValue]) {
+        var state = liveStates[deviceID] ?? LiveDeviceState()
+        switch actionID {
+        case "motor_run_forward":
+            state.values["motor_state"] = .string("forward")
+        case "motor_run_reverse":
+            state.values["motor_state"] = .string("reverse")
+        case "motor_stop":
+            state.values["motor_state"] = .string("stopped")
+        case "set_display_enabled":
+            if let enabled = payload["value"]?.boolValue {
+                state.values["display_enabled"] = .bool(enabled)
+            }
+        default:
+            return
+        }
+
+        state.lastUpdate = .now
+        liveStates[deviceID] = state
     }
 
     private func beginScanningIfPossible() {
@@ -246,9 +278,30 @@ final class RetroSmartBLEManager: NSObject, ObservableObject {
         connectionStates = connectionStates.mapValues { _ in .disconnected }
     }
 
+    private func updateConnectionState(for peripheralID: UUID, to state: DeviceConnectionState) {
+        if let deviceID = peripheralContexts[peripheralID]?.identityPayload?.deviceID {
+            connectionStates[deviceID] = state
+            return
+        }
+
+        if let knownDevice = knownDevices.values.first(where: { $0.peripheralIdentifier == peripheralID }) {
+            connectionStates[knownDevice.deviceID] = state
+        }
+    }
+
+    private func failPendingIdentityResolution(for peripheralID: UUID, error: Error) {
+        autoConnectInFlight.remove(peripheralID)
+        pendingIdentityContinuations[peripheralID]?.resume(throwing: error)
+        pendingIdentityContinuations[peripheralID] = nil
+        updateConnectionState(for: peripheralID, to: .disconnected)
+    }
+
     private func appendDebug(_ message: String) {
         let timestamp = Date.now.formatted(date: .omitted, time: .standard)
         debugMessages.append("[\(timestamp)] \(message)")
+        if debugMessages.count > 120 {
+            debugMessages.removeFirst(debugMessages.count - 120)
+        }
     }
 
     private func isPotentialRetroSmartPeripheral(_ peripheral: CBPeripheral, advertisementData: [String: Any]) -> Bool {
@@ -339,9 +392,10 @@ extension RetroSmartBLEManager: CBCentralManagerDelegate {
     ) {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            self.autoConnectInFlight.remove(peripheral.identifier)
-            self.pendingIdentityContinuations[peripheral.identifier]?.resume(throwing: error ?? ModuleConfigError(message: "Unable to connect to the selected peripheral."))
-            self.pendingIdentityContinuations[peripheral.identifier] = nil
+            self.failPendingIdentityResolution(
+                for: peripheral.identifier,
+                error: error ?? ModuleConfigError(message: "Unable to connect to the selected peripheral.")
+            )
             self.appendDebug("Failed to connect: \(error?.localizedDescription ?? "Unknown error")")
         }
     }
@@ -351,10 +405,14 @@ extension RetroSmartBLEManager: CBCentralManagerDelegate {
             guard let self else { return }
 
             self.autoConnectInFlight.remove(peripheral.identifier)
-
-            if let deviceID = self.peripheralContexts[peripheral.identifier]?.identityPayload?.deviceID {
-                self.connectionStates[deviceID] = .disconnected
+            if self.pendingIdentityContinuations[peripheral.identifier] != nil {
+                self.failPendingIdentityResolution(
+                    for: peripheral.identifier,
+                    error: error ?? ModuleConfigError(message: "The peripheral disconnected before identity could be read.")
+                )
             }
+
+            self.updateConnectionState(for: peripheral.identifier, to: .disconnected)
 
             self.appendDebug("Disconnected from \(peripheral.name ?? peripheral.identifier.uuidString)")
             if self.foregroundActive {
@@ -369,8 +427,7 @@ extension RetroSmartBLEManager: CBPeripheralDelegate {
         Task { @MainActor [weak self] in
             guard let self else { return }
             if let error {
-                self.pendingIdentityContinuations[peripheral.identifier]?.resume(throwing: error)
-                self.pendingIdentityContinuations[peripheral.identifier] = nil
+                self.failPendingIdentityResolution(for: peripheral.identifier, error: error)
                 self.appendDebug("Service discovery failed: \(error.localizedDescription)")
                 return
             }
@@ -378,8 +435,7 @@ extension RetroSmartBLEManager: CBPeripheralDelegate {
             let matchingServices = peripheral.services?.filter { $0.uuid == RetroSmartBLEContract.serviceUUID } ?? []
             guard !matchingServices.isEmpty else {
                 let error = ModuleConfigError(message: "The selected peripheral connected, but it did not expose the RetroSmart BLE service.")
-                self.pendingIdentityContinuations[peripheral.identifier]?.resume(throwing: error)
-                self.pendingIdentityContinuations[peripheral.identifier] = nil
+                self.failPendingIdentityResolution(for: peripheral.identifier, error: error)
                 self.appendDebug("Connected peripheral did not expose the RetroSmart service")
                 return
             }
@@ -403,8 +459,7 @@ extension RetroSmartBLEManager: CBPeripheralDelegate {
         Task { @MainActor [weak self] in
             guard let self else { return }
             if let error {
-                self.pendingIdentityContinuations[peripheral.identifier]?.resume(throwing: error)
-                self.pendingIdentityContinuations[peripheral.identifier] = nil
+                self.failPendingIdentityResolution(for: peripheral.identifier, error: error)
                 self.appendDebug("Characteristic discovery failed: \(error.localizedDescription)")
                 return
             }
@@ -455,15 +510,18 @@ extension RetroSmartBLEManager: CBPeripheralDelegate {
                         return
                     }
 
+                    self.autoConnectInFlight.remove(peripheral.identifier)
                     context.identityPayload = identity
                     context.advertisedName = identity.model
                     self.peripheralContexts[peripheral.identifier] = context
                     self.connectionStates[identity.deviceID] = .connected
                     self.updateNearbyList()
 
-                    if var descriptor = self.knownDevices[identity.deviceID] {
-                        descriptor = KnownDeviceDescriptor(deviceID: identity.deviceID, peripheralIdentifier: peripheral.identifier)
-                        self.knownDevices[identity.deviceID] = descriptor
+                    if self.knownDevices[identity.deviceID] != nil {
+                        self.knownDevices[identity.deviceID] = KnownDeviceDescriptor(
+                            deviceID: identity.deviceID,
+                            peripheralIdentifier: peripheral.identifier
+                        )
                     }
 
                     self.pendingIdentityContinuations[peripheral.identifier]?.resume(
@@ -472,8 +530,7 @@ extension RetroSmartBLEManager: CBPeripheralDelegate {
                     self.pendingIdentityContinuations[peripheral.identifier] = nil
                     self.appendDebug("Identity loaded for \(identity.deviceID) as \(identity.deviceType)")
                 } catch {
-                    self.pendingIdentityContinuations[peripheral.identifier]?.resume(throwing: error)
-                    self.pendingIdentityContinuations[peripheral.identifier] = nil
+                    self.failPendingIdentityResolution(for: peripheral.identifier, error: error)
                     self.appendDebug("Failed to decode identity JSON: \(error.localizedDescription)")
                 }
             } else if characteristic.uuid == RetroSmartBLEContract.capabilitiesUUID {
@@ -485,6 +542,7 @@ extension RetroSmartBLEManager: CBPeripheralDelegate {
                     var state = self.liveStates[identity.deviceID] ?? LiveDeviceState()
                     state.lastCapabilitySummary = summary
                     self.liveStates[identity.deviceID] = state
+                    self.connectionStates[identity.deviceID] = .connected
                     self.appendDebug("Capabilities loaded for \(identity.deviceID)")
                 } catch {
                     self.appendDebug("Failed to decode capabilities for \(identity.deviceID): \(error.localizedDescription)")
@@ -499,6 +557,7 @@ extension RetroSmartBLEManager: CBPeripheralDelegate {
                     state.values = payload.flattenedValues
                     state.lastUpdate = .now
                     self.liveStates[identity.deviceID] = state
+                    self.connectionStates[identity.deviceID] = .connected
                     self.appendDebug("State update received for \(identity.deviceID)")
                 } catch {
                     self.appendDebug("Failed to decode state payload for \(identity.deviceID): \(error.localizedDescription)")

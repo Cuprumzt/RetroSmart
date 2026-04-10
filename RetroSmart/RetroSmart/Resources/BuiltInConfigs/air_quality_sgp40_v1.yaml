@@ -1,3 +1,7 @@
+# RetroSmart v1 air quality bands
+# This module exposes two derived values:
+# - quality_score: 0-100, where higher is better
+# - voc_index: normalized 0-500, used for label banding
 # ESP32-S3 Zero profile:
 # - keep all module wiring within GPIO1-GPIO13
 # - do not rely on the onboard WS2812 on GPIO21
@@ -5,29 +9,36 @@
 schema_version: 1
 
 module:
-  type_id: temperature_ds18b20_v1
-  display_name: Temperature Module
+  type_id: air_quality_sgp40_v1
+  display_name: Air Quality Module
   category: sensor
-  description: Temperature sensing using a DS18B20 probe over OneWire.
+  description: Air quality sensing using SGP40 VOC index readings over I2C.
   manufacturer: RetroSmart
   firmware_family: retrosmart_esp32_ble_v1
 
 identity:
   ble:
     service_uuid: "d973f2e0-71a7-4e26-a72a-4a130b83a001"
-    device_type_key: temperature_ds18b20_v1
+    device_type_key: air_quality_sgp40_v1
     exposes_unique_id: true
 
 ui:
-  icon_suggestions: [thermometer.medium, gauge.with.needle, switch.2]
+  icon_suggestions: [aqi.medium, wind, gauge.with.needle]
   device_page:
     layout: controls_primary
     widgets:
       - type: reading
-        id: temperature_c
-        label: Temperature
-        source: temperature_c
-        unit: C
+        id: quality_score
+        label: Quality Score
+        source: quality_score
+      - type: reading
+        id: voc_index
+        label: VOC Index
+        source: voc_index
+      - type: reading
+        id: air_quality_label
+        label: Air Quality
+        source: air_quality_label
       - type: toggle
         id: display_enabled_toggle
         label: Display
@@ -48,10 +59,16 @@ capabilities:
       payload:
         type: boolean
   readings:
-    - id: temperature_c
-      label: Temperature
-      type: float
-      unit: C
+    - id: quality_score
+      label: Quality Score
+      type: integer
+    - id: voc_index
+      label: VOC Index
+      type: integer
+    - id: air_quality_label
+      label: Air Quality Label
+      type: enum
+      values: [Excellent, Good, Fair, Moderate, Poor, Very Poor]
     - id: display_present
       label: Display Present
       type: boolean
@@ -60,16 +77,18 @@ capabilities:
       type: boolean
 
 automation:
-  triggers: [temperature_c]
+  triggers: [quality_score, voc_index, air_quality_label]
   actions: []
 
 hardware:
   board: esp32_s3_zero
   interfaces:
-    sensor_bus: onewire
+    sensor_bus: i2c
+    env_sensor: sgp40
     display_bus: i2c
   pinout:
-    onewire_data: GPIO6
+    i2c_sda: GPIO5
+    i2c_scl: GPIO6
     oled_i2c_sda: GPIO7
     oled_i2c_scl: GPIO8
     status_led: GPIO13
@@ -77,6 +96,6 @@ hardware:
 firmware:
   transport: ble
   codegen:
-    template: temperature_ds18b20
-    required_libraries: [BLEDevice, ArduinoJson, OneWire, DallasTemperature, Wire, Adafruit_GFX, Adafruit_SSD1306]
+    template: air_quality_sgp40
+    required_libraries: [BLEDevice, ArduinoJson, Wire, Adafruit_SGP40, Adafruit_GFX, Adafruit_SSD1306]
     update_model: streaming

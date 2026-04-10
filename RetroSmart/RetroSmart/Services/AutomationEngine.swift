@@ -3,22 +3,21 @@ import Foundation
 @MainActor
 final class AutomationEngine {
     private weak var bleManager: RetroSmartBLEManager?
-    private weak var configRegistry: ModuleConfigRegistry?
-
-    private var devicesByID: [String: DeviceRecord] = [:]
     private var rules: [AutomationRuleRecord] = []
     private var isForegroundActive = false
     private var lastExecutionDates: [UUID: Date] = [:]
+    private var lastTriggerMatches: [UUID: Bool] = [:]
     private let minimumExecutionInterval: TimeInterval = 2
 
-    func configure(bleManager: RetroSmartBLEManager, configRegistry: ModuleConfigRegistry) {
+    func configure(bleManager: RetroSmartBLEManager, configRegistry _: ModuleConfigRegistry) {
         self.bleManager = bleManager
-        self.configRegistry = configRegistry
     }
 
-    func sync(devices: [DeviceRecord], automations: [AutomationRuleRecord]) {
-        devicesByID = Dictionary(uniqueKeysWithValues: devices.map { ($0.deviceID, $0) })
+    func sync(devices _: [DeviceRecord], automations: [AutomationRuleRecord]) {
         rules = automations
+        let activeRuleIDs = Set(automations.map(\.id))
+        lastExecutionDates = lastExecutionDates.filter { activeRuleIDs.contains($0.key) }
+        lastTriggerMatches = lastTriggerMatches.filter { activeRuleIDs.contains($0.key) }
         evaluateIfNeeded()
     }
 
@@ -36,13 +35,22 @@ final class AutomationEngine {
 
         for rule in rules where rule.isEnabled {
             guard let triggerState = bleManager.liveStates[rule.triggerDeviceID] else {
+                lastTriggerMatches[rule.id] = false
                 continue
             }
             guard let value = triggerState.values[rule.triggerSourceID] else {
+                lastTriggerMatches[rule.id] = false
                 continue
             }
 
-            guard doesTrigger(rule: rule, on: value) else {
+            let doesMatch = doesTrigger(rule: rule, on: value)
+            let matchedPreviously = lastTriggerMatches[rule.id] ?? false
+            lastTriggerMatches[rule.id] = doesMatch
+
+            guard doesMatch else {
+                continue
+            }
+            guard !matchedPreviously else {
                 continue
             }
 
@@ -53,6 +61,10 @@ final class AutomationEngine {
             execute(rule: rule)
             lastExecutionDates[rule.id] = now
             rule.lastTriggeredAt = now
+        }
+
+        for rule in rules where !rule.isEnabled {
+            lastTriggerMatches[rule.id] = false
         }
     }
 

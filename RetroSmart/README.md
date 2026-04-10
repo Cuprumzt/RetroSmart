@@ -12,7 +12,7 @@ The persisted product requirements document for the current prototype lives at [
   - `dc_motor_drv8833_v1`
   - `servo_180_v1`
   - `temperature_ds18b20_v1`
-  - `air_quality_ens160_aht21_v1`
+  - `air_quality_sgp40_v1`
 - YAML import from Files and raw paste import
 - BLE manager using a fixed RetroSmart JSON-over-BLE contract
 - Lightweight config-driven device page renderer
@@ -105,7 +105,7 @@ Imported YAML is validated on-device. If a new import uses an existing `type_id`
 
 ## Running the app
 
-1. Open [RetroSmart.xcodeproj](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo Y/code/RetroSmart/RetroSmart.xcodeproj) in Xcode.
+1. Open [RetroSmart.xcodeproj](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/RetroSmart/RetroSmart.xcodeproj) in Xcode.
 2. Select an iOS 17+ simulator or device.
 3. Build and run the `RetroSmart` target.
 4. Use the `Devices` tab to:
@@ -115,13 +115,13 @@ Imported YAML is validated on-device. If a new import uses an existing `type_id`
 
 ## Flashing firmware
 
-Firmware lives under [firmware](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo Y/code/firmware).
+Firmware lives under [firmware](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware).
 
 1. Open the module sketch you want:
-   - [dc_motor_drv8833_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo Y/code/firmware/modules/dc_motor_drv8833_v1/dc_motor_drv8833_v1.ino)
-   - [servo_180_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo Y/code/firmware/modules/servo_180_v1/servo_180_v1.ino)
-   - [temperature_ds18b20_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo Y/code/firmware/modules/temperature_ds18b20_v1/temperature_ds18b20_v1.ino)
-   - [air_quality_ens160_aht21_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo Y/code/firmware/modules/air_quality_ens160_aht21_v1/air_quality_ens160_aht21_v1.ino)
+   - [dc_motor_drv8833_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/modules/dc_motor_drv8833_v1/dc_motor_drv8833_v1.ino)
+   - [servo_180_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/modules/servo_180_v1/servo_180_v1.ino)
+   - [temperature_ds18b20_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/modules/temperature_ds18b20_v1/temperature_ds18b20_v1.ino)
+   - [air_quality_sgp40_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/modules/air_quality_sgp40_v1/air_quality_sgp40_v1.ino)
 2. Install the libraries listed in each YAML config and sketch comments.
 3. For `ESP32-S3 Zero`, enable native USB serial in Arduino before flashing:
    - board: your ESP32-S3 target or ESP32-S3 Zero profile
@@ -129,8 +129,8 @@ Firmware lives under [firmware](/Users/tong/Library/CloudStorage/OneDrive-Person
 4. The built-in RetroSmart pin maps for `ESP32-S3 Zero` stay within `GPIO1-GPIO13`:
    - DC motor: `GPIO7` PWM, `GPIO8` IN1, `GPIO9` IN2, optional status LED `GPIO13`
    - Servo: `GPIO7` signal, optional status LED `GPIO13`
-   - Temperature: `GPIO7` OneWire, optional status LED `GPIO13`
-   - Air quality: `GPIO5` SDA, `GPIO6` SCL, optional status LED `GPIO13`
+   - Temperature: `GPIO6` OneWire, `GPIO7` OLED SDA, `GPIO8` OLED SCL, optional status LED `GPIO13`
+   - Air quality: `GPIO5` SDA, `GPIO6` SCL, `GPIO7` OLED SDA, `GPIO8` OLED SCL, optional status LED `GPIO13`
 5. The board's onboard WS2812 on `GPIO21` is intentionally unused in this profile so all required wiring stays on the easy-access pins. `GPIO0` is also left alone because it is the BOOT pin.
 6. Flash the sketch to the matching ESP32 module. If the board does not auto-enter download mode, hold `BOOT` while connecting or resetting it.
 7. Open the serial monitor at `115200`, then power the module and onboard it from the app.

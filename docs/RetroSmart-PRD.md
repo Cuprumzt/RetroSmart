@@ -302,13 +302,13 @@ The first release includes the following module types.
 
 - Type ID: `dc_motor_drv8833_v1`
 - Purpose: bi-directional actuation using DRV8833
-- UI: two press-and-hold buttons plus Stop
+- UI: two press-and-hold directional buttons with motor state centered below
 - Behavior:
   - hold `Forward` to actuate one direction
   - hold `Reverse` to actuate the other direction
   - release stops actuation
   - fixed speed
-  - max continuous run time 5 seconds, then auto-stop
+  - stops if the BLE connection drops while running
 
 ### 12.2 180-degree servo module
 
@@ -324,21 +324,26 @@ The first release includes the following module types.
 
 - Type ID: `temperature_ds18b20_v1`
 - Purpose: temperature readout using DS18B20
-- UI: current temperature display
+- UI:
+  - current temperature display
+  - OLED display toggle when a connected module reports an attached SSD1306 display
 - Behavior:
   - reads and publishes every 1 second
+  - optional 96x16 SSD1306 OLED on a separate I2C bus shows thermometer icon plus temperature in one line
 
 ### 12.4 Air quality module
 
-- Type ID: `air_quality_ens160_aht21_v1`
-- Purpose: air quality sensing using ENS160 and AHT21 over I2C
+- Type ID: `air_quality_sgp40_v1`
+- Purpose: air quality sensing using SGP40 over I2C
 - UI:
-  - numeric air quality score
+  - primary 0-100 quality score
+  - numeric VOC index
   - category label
-  - eCO2 secondary reading
-  - TVOC secondary reading
+  - OLED display toggle when a connected module reports an attached SSD1306 display
 - Behavior:
   - reads and publishes every 1 second
+  - uses fixed 25 C / 50% RH compensation defaults in firmware
+  - optional 96x16 SSD1306 OLED on a separate I2C bus shows cloud icon plus Good/Poor score in one line
 
 ## 13. Configuration file format
 
@@ -541,11 +546,15 @@ Board-specific constraints for this project:
   - `servo_signal`: `GPIO7`
   - `status_led`: `GPIO13` optional external LED
 - Temperature:
-  - `onewire_data`: `GPIO7`
+  - `onewire_data`: `GPIO6`
+  - `oled_i2c_sda`: `GPIO7`
+  - `oled_i2c_scl`: `GPIO8`
   - `status_led`: `GPIO13` optional external LED
 - Air quality:
   - `i2c_sda`: `GPIO5`
   - `i2c_scl`: `GPIO6`
+  - `oled_i2c_sda`: `GPIO7`
+  - `oled_i2c_scl`: `GPIO8`
   - `status_led`: `GPIO13` optional external LED
 
 ### 18.2 Wiring assumptions
@@ -664,7 +673,7 @@ The app ships with built-in YAML for:
 - `dc_motor_drv8833_v1`
 - `servo_180_v1`
 - `temperature_ds18b20_v1`
-- `air_quality_ens160_aht21_v1`
+- `air_quality_sgp40_v1`
 
 These definitions are bundled into the app and may be globally replaced by later imports with matching `type_id`.
 

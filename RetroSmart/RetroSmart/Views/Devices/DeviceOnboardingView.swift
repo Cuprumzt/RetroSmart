@@ -13,6 +13,7 @@ struct DeviceOnboardingView: View {
     @State private var iconSystemName: String
     @State private var assignedTypeID: String
     @State private var showingTechnicalDetails = false
+    @State private var errorMessage: String?
 
     let draft: DeviceOnboardingDraft
 
@@ -33,10 +34,10 @@ struct DeviceOnboardingView: View {
                 }
             }
 
-            Section("Metadata") {
+            Section("Module Information") {
                 TextField("Name", text: $customName)
 
-                Picker("Assigned Type", selection: $assignedTypeID) {
+                Picker("Module Type", selection: $assignedTypeID) {
                     ForEach(appModel.configRegistry.loadedConfigs) { loadedConfig in
                         Text(loadedConfig.config.module.displayName)
                             .tag(loadedConfig.config.module.typeID)
@@ -76,23 +77,44 @@ struct DeviceOnboardingView: View {
                 .disabled(customName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || appModel.configRegistry.config(for: assignedTypeID) == nil)
             }
         }
+        .alert("Unable to Save Device", isPresented: errorAlertIsPresented) {
+            Button("OK") {
+                errorMessage = nil
+            }
+        } message: {
+            Text(errorMessage ?? "")
+        }
     }
 
     private func saveDevice() {
+        let trimmedName = customName.trimmingCharacters(in: .whitespacesAndNewlines)
         let nextIndex = (devices.map(\.insertionIndex).max() ?? -1) + 1
-        let record = DeviceRecord(
-            deviceID: draft.deviceID,
-            customName: customName.trimmingCharacters(in: .whitespacesAndNewlines),
-            iconSystemName: iconSystemName,
-            assignedTypeID: assignedTypeID,
-            advertisedTypeID: draft.advertisedTypeID,
-            modelName: draft.modelName,
-            firmwareVersion: draft.firmwareVersion,
-            peripheralIdentifier: draft.peripheralIdentifier.uuidString,
-            insertionIndex: nextIndex
-        )
+        let record: DeviceRecord
 
-        modelContext.insert(record)
+        if let existing = devices.first(where: { $0.deviceID == draft.deviceID }) {
+            existing.customName = trimmedName
+            existing.iconSystemName = iconSystemName
+            existing.assignedTypeID = assignedTypeID
+            existing.advertisedTypeID = draft.advertisedTypeID
+            existing.modelName = draft.modelName
+            existing.firmwareVersion = draft.firmwareVersion
+            existing.peripheralIdentifier = draft.peripheralIdentifier.uuidString
+            record = existing
+        } else {
+            let newRecord = DeviceRecord(
+                deviceID: draft.deviceID,
+                customName: trimmedName,
+                iconSystemName: iconSystemName,
+                assignedTypeID: assignedTypeID,
+                advertisedTypeID: draft.advertisedTypeID,
+                modelName: draft.modelName,
+                firmwareVersion: draft.firmwareVersion,
+                peripheralIdentifier: draft.peripheralIdentifier.uuidString,
+                insertionIndex: nextIndex
+            )
+            modelContext.insert(newRecord)
+            record = newRecord
+        }
 
         do {
             try modelContext.save()
@@ -102,7 +124,18 @@ struct DeviceOnboardingView: View {
             )
             onSave()
         } catch {
-            print("Failed to save device: \(error.localizedDescription)")
+            errorMessage = error.localizedDescription
         }
+    }
+
+    private var errorAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { errorMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    errorMessage = nil
+                }
+            }
+        )
     }
 }

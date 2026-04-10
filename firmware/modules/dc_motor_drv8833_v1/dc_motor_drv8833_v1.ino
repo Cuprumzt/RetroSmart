@@ -9,19 +9,23 @@ static constexpr int PIN_STATUS_LED = 13;
 
 static constexpr uint32_t PWM_FREQUENCY_HZ = 20000;
 static constexpr uint8_t PWM_RESOLUTION_BITS = 8;
-static constexpr uint32_t MAX_RUN_MS = 5000;
+static constexpr uint8_t PWM_DUTY = 255;
+static constexpr uint32_t IDLE_NOTIFY_MS = 1000;
+static constexpr uint32_t ACTIVE_NOTIFY_MS = 250;
 
 enum class MotorState {
   stopped,
   forward,
-  reverse,
-  timedOut
+  reverse
 };
 
 static RetroSmartBLEModule* gBleModule = nullptr;
 static MotorState gMotorState = MotorState::stopped;
-static uint32_t gRunStartedMs = 0;
 static uint32_t gLastStateNotifyMs = 0;
+
+static bool isActiveMotorState(MotorState state) {
+  return state == MotorState::forward || state == MotorState::reverse;
+}
 
 static const char* motorStateLabel(MotorState state) {
   switch (state) {
@@ -29,42 +33,38 @@ static const char* motorStateLabel(MotorState state) {
       return "forward";
     case MotorState::reverse:
       return "reverse";
-    case MotorState::timedOut:
-      return "timed_out";
     case MotorState::stopped:
     default:
       return "stopped";
   }
 }
 
-static void applyOutputs(MotorState state) {
+static void writeMotorOutputs(bool in1, bool in2, uint8_t pwmDuty) {
+  digitalWrite(PIN_MOTOR_IN1, in1 ? HIGH : LOW);
+  digitalWrite(PIN_MOTOR_IN2, in2 ? HIGH : LOW);
+  ledcWrite(PIN_MOTOR_PWM, pwmDuty);
+}
+
+static void applyMotorState(MotorState state) {
   switch (state) {
     case MotorState::forward:
-      digitalWrite(PIN_MOTOR_IN1, HIGH);
-      digitalWrite(PIN_MOTOR_IN2, LOW);
-      ledcWrite(PIN_MOTOR_PWM, 255);
+      writeMotorOutputs(true, false, PWM_DUTY);
       break;
     case MotorState::reverse:
-      digitalWrite(PIN_MOTOR_IN1, LOW);
-      digitalWrite(PIN_MOTOR_IN2, HIGH);
-      ledcWrite(PIN_MOTOR_PWM, 255);
+      writeMotorOutputs(false, true, PWM_DUTY);
       break;
-    case MotorState::timedOut:
     case MotorState::stopped:
     default:
-      digitalWrite(PIN_MOTOR_IN1, LOW);
-      digitalWrite(PIN_MOTOR_IN2, LOW);
-      ledcWrite(PIN_MOTOR_PWM, 0);
+      writeMotorOutputs(false, false, 0);
       break;
   }
 
-  digitalWrite(PIN_STATUS_LED, state == MotorState::stopped ? LOW : HIGH);
+  digitalWrite(PIN_STATUS_LED, isActiveMotorState(state) ? HIGH : LOW);
 }
 
 static void setMotorState(MotorState state) {
   gMotorState = state;
-  gRunStartedMs = (state == MotorState::forward || state == MotorState::reverse) ? millis() : 0;
-  applyOutputs(state);
+  applyMotorState(state);
   retroSmartLog("Motor state -> " + String(motorStateLabel(state)));
 }
 
@@ -77,6 +77,9 @@ static void notifyMotorState() {
 
 static void handleCommand(const JsonDocument& command) {
   const char* action = command["action"] | "";
+  const uint32_t now = millis();
+
+  retroSmartLog("Received action -> " + String(action));
 
   if (strcmp(action, "motor_run_forward") == 0) {
     setMotorState(MotorState::forward);
@@ -85,11 +88,11 @@ static void handleCommand(const JsonDocument& command) {
   } else if (strcmp(action, "motor_stop") == 0) {
     setMotorState(MotorState::stopped);
   } else {
-    Serial.print("Unknown motor action: ");
-    Serial.println(action);
+    retroSmartLog("Unknown motor action ignored");
     return;
   }
 
+  gLastStateNotifyMs = now;
   notifyMotorState();
 }
 
@@ -110,7 +113,7 @@ void setup() {
     .deviceId = retroSmartDeviceId("RS-DCM"),
     .deviceType = "dc_motor_drv8833_v1",
     .model = "DC Motor Module",
-    .firmwareVersion = "0.1.0"
+    .firmwareVersion = "0.2.0"
   };
 
   const char* const actions[] = {
@@ -134,13 +137,15 @@ void setup() {
 void loop() {
   const uint32_t now = millis();
 
-  if ((gMotorState == MotorState::forward || gMotorState == MotorState::reverse) &&
-      (now - gRunStartedMs >= MAX_RUN_MS)) {
-    setMotorState(MotorState::timedOut);
+  if (!gBleModule->isConnected() && isActiveMotorState(gMotorState)) {
+    setMotorState(MotorState::stopped);
+    gLastStateNotifyMs = now;
     notifyMotorState();
+    return;
   }
 
-  if (now - gLastStateNotifyMs >= 1000) {
+  const uint32_t notifyInterval = isActiveMotorState(gMotorState) ? ACTIVE_NOTIFY_MS : IDLE_NOTIFY_MS;
+  if (now - gLastStateNotifyMs >= notifyInterval) {
     gLastStateNotifyMs = now;
     notifyMotorState();
   }

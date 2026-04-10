@@ -42,7 +42,7 @@ struct YAMLPasteImportView: View {
                 .disabled(yamlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .alert("YAML Import", isPresented: .constant(message != nil), actions: {
+        .alert("YAML Import", isPresented: messageAlertIsPresented, actions: {
             Button("OK") {
                 let success = message?.hasPrefix("Imported") == true
                 message = nil
@@ -66,5 +66,16 @@ struct YAMLPasteImportView: View {
         } catch {
             message = error.localizedDescription
         }
+    }
+
+    private var messageAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { message != nil },
+            set: { isPresented in
+                if !isPresented {
+                    message = nil
+                }
+            }
+        )
     }
 }

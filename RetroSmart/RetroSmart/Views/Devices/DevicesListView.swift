@@ -13,20 +13,44 @@ struct DevicesListView: View {
     @State private var showingConfigLibrary = false
     @State private var importAlertMessage: String?
 
+    private var connectedDeviceCount: Int {
+        devices.filter { appModel.bleManager.connectionStates[$0.deviceID] == .connected }.count
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                DevicesOverviewCard(
+                    deviceCount: devices.count,
+                    connectedCount: connectedDeviceCount
+                )
+
                 if devices.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("No RetroSmart devices yet")
+                        Label("No RetroSmart devices yet", systemImage: "switch.2")
                             .font(.headline)
-                        Text("Use the plus button to add a module or import a type.")
+                        Text("Use the plus button to add a nearby module or import a type definition.")
                             .foregroundStyle(.secondary)
                     }
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(uiColor: .secondarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .background(
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.accentColor.opacity(0.14),
+                                        Color(uiColor: .secondarySystemGroupedBackground),
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .stroke(Color.accentColor.opacity(0.12), lineWidth: 1)
+                    }
                 } else {
                     LazyVGrid(
                         columns: [
@@ -51,7 +75,7 @@ struct DevicesListView: View {
             .padding(.bottom, 24)
         }
         .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("Devices")
+        .navigationTitle("RetroSmart")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -115,7 +139,7 @@ struct DevicesListView: View {
                 importAlertMessage = error.localizedDescription
             }
         }
-        .alert("Config Import", isPresented: .constant(importAlertMessage != nil), actions: {
+        .alert("Config Import", isPresented: importAlertIsPresented, actions: {
             Button("OK") {
                 importAlertMessage = nil
             }
@@ -123,10 +147,22 @@ struct DevicesListView: View {
             Text(importAlertMessage ?? "")
         })
     }
+
+    private var importAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { importAlertMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    importAlertMessage = nil
+                }
+            }
+        )
+    }
 }
 
 private struct DeviceGridCard: View {
     @EnvironmentObject private var appModel: AppModel
+    @Environment(\.colorScheme) private var colorScheme
     let device: DeviceRecord
 
     private var loadedConfig: LoadedModuleConfig? {
@@ -192,16 +228,40 @@ private struct DeviceGridCard: View {
         }
     }
 
-    private var cardSubtitle: String? {
-        guard let config = loadedConfig?.config else {
-            return nil
+    private var cardGradient: LinearGradient {
+        let accent = Color.accentColor
+        switch connectionState {
+        case .connected:
+            return LinearGradient(
+                colors: [accent.opacity(colorScheme == .dark ? 0.22 : 0.14), panelColor],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .connecting:
+            return LinearGradient(
+                colors: [Color.orange.opacity(colorScheme == .dark ? 0.18 : 0.12), panelColor],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .disconnected:
+            return LinearGradient(
+                colors: [panelColor, panelInsetColor],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         }
+    }
 
-        if config.module.category == "sensor" {
-            return nil
-        }
+    private var panelColor: Color {
+        colorScheme == .dark
+            ? Color(red: 0.07, green: 0.10, blue: 0.16)
+            : Color(red: 0.92, green: 0.95, blue: 0.99)
+    }
 
-        return config.module.displayName
+    private var panelInsetColor: Color {
+        colorScheme == .dark
+            ? Color(red: 0.12, green: 0.15, blue: 0.22)
+            : Color.white
     }
 
     var body: some View {
@@ -210,7 +270,7 @@ private struct DeviceGridCard: View {
                 Image(systemName: device.iconSystemName)
                     .font(.title3)
                     .frame(width: 38, height: 38)
-                    .background(Color.accentColor.opacity(0.12))
+                    .background(panelInsetColor)
                     .foregroundStyle(Color.accentColor)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
@@ -230,36 +290,33 @@ private struct DeviceGridCard: View {
                             .lineLimit(1)
                     }
                 } else if let statusIconName {
-                    Image(systemName: statusIconName)
-                        .font(.headline.weight(.semibold))
+                    Label(connectionState == .connecting ? "Connecting" : "Offline", systemImage: statusIconName)
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(panelInsetColor)
                         .foregroundStyle(statusColor)
-                        .frame(width: 30, height: 30)
+                        .clipShape(Capsule())
                 }
             }
 
             Spacer(minLength: 0)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(device.customName)
-                    .font(.headline)
-                    .lineLimit(2)
-                if let cardSubtitle {
-                    Text(cardSubtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                } else if connectionState != .connected {
-                    Text(connectionState == .connecting ? "Reconnecting" : "Offline")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
+            Text(device.customName)
+                .font(.headline)
+                .lineLimit(2)
         }
         .frame(maxWidth: .infinity, minHeight: 124, alignment: .topLeading)
         .padding(14)
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(cardGradient)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color.accentColor.opacity(colorScheme == .dark ? 0.14 : 0.10), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0.22 : 0.06), radius: 18, y: 10)
     }
 
     private func firstReadingWidget(in widgets: [WidgetConfig]) -> WidgetConfig? {
@@ -274,6 +331,69 @@ private struct DeviceGridCard: View {
         }
 
         return nil
+    }
+}
+
+private struct DevicesOverviewCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let deviceCount: Int
+    let connectedCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("RetroSmart Home")
+                .font(.title2.weight(.semibold))
+
+            HStack(spacing: 12) {
+                summaryValue(title: "Devices", value: "\(deviceCount)")
+                summaryValue(title: "Live", value: "\(connectedCount)")
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.accentColor.opacity(colorScheme == .dark ? 0.24 : 0.16),
+                            panelColor,
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .stroke(Color.accentColor.opacity(colorScheme == .dark ? 0.18 : 0.12), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0.24 : 0.06), radius: 20, y: 10)
+    }
+
+    private func summaryValue(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased())
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.title3.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(panelInsetColor)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var panelColor: Color {
+        colorScheme == .dark
+            ? Color(red: 0.07, green: 0.10, blue: 0.16)
+            : Color(red: 0.92, green: 0.95, blue: 0.99)
+    }
+
+    private var panelInsetColor: Color {
+        colorScheme == .dark
+            ? Color(red: 0.12, green: 0.15, blue: 0.22)
+            : Color.white
     }
 }
 
