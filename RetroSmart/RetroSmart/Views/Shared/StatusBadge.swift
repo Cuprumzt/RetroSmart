@@ -16,32 +16,44 @@ struct StatusBadge: View {
             case .iconOnly:
                 Image(systemName: iconName)
                     .font(.body.weight(.semibold))
-                    .frame(width: 34, height: 34)
-                    .background(color.opacity(0.16))
+                    .frame(width: 36, height: 36)
+                    .background(color.opacity(0.14))
                     .foregroundStyle(color)
-                    .clipShape(Circle())
-            case .standard, .deviceDetail:
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            case .standard:
+                Text(labelText)
+                    .font(.caption2.weight(.semibold))
+                    .lineLimit(1)
+                    .frame(height: 16)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(color.opacity(0.14))
+                    .foregroundStyle(color)
+                    .clipShape(Capsule())
+            case .deviceDetail:
                 Label(labelText, systemImage: iconName)
+                    .labelStyle(.titleAndIcon)
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(color.opacity(0.16))
+                    .background(color.opacity(0.14))
                     .foregroundStyle(color)
                     .clipShape(Capsule())
             }
         }
-        .accessibilityLabel(labelText)
+        .accessibilityLabel(accessibilityText)
     }
 
     private var color: Color {
         switch state {
         case .connected:
-            return .green
+            return RetroSmartTheme.success
         case .connecting:
-            return .orange
+            return RetroSmartTheme.warning
         case .disconnected:
-            return .secondary
+            return RetroSmartTheme.quiet
         }
     }
 
@@ -58,6 +70,15 @@ struct StatusBadge: View {
 
     private var labelText: String {
         switch style {
+        case .standard:
+            switch state {
+            case .connected:
+                return "Live"
+            case .connecting:
+                return "Linking"
+            case .disconnected:
+                return "Offline"
+            }
         case .deviceDetail:
             switch state {
             case .connected:
@@ -67,8 +88,24 @@ struct StatusBadge: View {
             case .disconnected:
                 return "Disconnected"
             }
-        case .standard, .iconOnly:
+        case .iconOnly:
             return state.label
+        }
+    }
+
+    private var accessibilityText: String {
+        switch style {
+        case .standard:
+            switch state {
+            case .connected:
+                return "Connected"
+            case .connecting:
+                return "Connecting"
+            case .disconnected:
+                return "Offline"
+            }
+        case .deviceDetail, .iconOnly:
+            return labelText
         }
     }
 }

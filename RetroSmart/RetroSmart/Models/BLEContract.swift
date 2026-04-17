@@ -168,9 +168,9 @@ enum DeviceConnectionState: String, CaseIterable {
         case .disconnected:
             return "Offline"
         case .connecting:
-            return "Joining"
+            return "Connecting"
         case .connected:
-            return "Online"
+            return "Connected"
         }
     }
 }

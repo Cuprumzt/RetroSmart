@@ -8,7 +8,9 @@ static constexpr int PIN_SERVO_SIGNAL = 7;
 static constexpr int PIN_STATUS_LED = 13;
 static constexpr int STARTUP_ANGLE = 5;
 static constexpr uint32_t SERVO_STEP_INTERVAL_MS = 12;
-static constexpr uint32_t STATE_NOTIFY_INTERVAL_MS = 250;
+static constexpr uint32_t ACTIVE_NOTIFY_INTERVAL_MS = 250;
+static constexpr uint32_t IDLE_NOTIFY_INTERVAL_MS = 2000;
+static constexpr uint32_t LOOP_DELAY_MS = 2;
 
 static RetroSmartBLEModule* gBleModule = nullptr;
 static Servo gServo;
@@ -67,7 +69,7 @@ void setup() {
     .deviceId = retroSmartDeviceId("RS-SER"),
     .deviceType = "servo_180_v1",
     .model = "Servo Module",
-    .firmwareVersion = "0.1.0"
+    .firmwareVersion = "0.1.4"
   };
 
   const char* const actions[] = {"set_servo_angle"};
@@ -94,8 +96,13 @@ void loop() {
     updateStatusLED();
   }
 
-  if (now - gLastStateNotifyMs >= STATE_NOTIFY_INTERVAL_MS) {
+  const uint32_t notifyInterval = gCurrentAngle == gTargetAngle
+    ? IDLE_NOTIFY_INTERVAL_MS
+    : ACTIVE_NOTIFY_INTERVAL_MS;
+  if (now - gLastStateNotifyMs >= notifyInterval) {
     gLastStateNotifyMs = now;
     notifyServoState();
   }
+
+  delay(LOOP_DELAY_MS);
 }

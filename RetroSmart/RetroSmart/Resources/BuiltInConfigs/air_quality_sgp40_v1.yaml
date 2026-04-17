@@ -78,7 +78,7 @@ capabilities:
 
 automation:
   triggers: [quality_score, voc_index, air_quality_label]
-  actions: []
+  actions: [set_display_enabled]
 
 hardware:
   board: esp32_s3_zero

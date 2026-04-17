@@ -2,10 +2,17 @@ import SwiftData
 import SwiftUI
 
 struct RootTabView: View {
+    private enum AppTab: Hashable {
+        case devices
+        case automations
+        case ai
+    }
+
     @EnvironmentObject private var appModel: AppModel
     @Query(sort: [SortDescriptor(\DeviceRecord.insertionIndex, order: .forward)]) private var devices: [DeviceRecord]
     @Query(sort: [SortDescriptor(\ImportedDeviceTypeRecord.importedAt, order: .forward)]) private var importedConfigs: [ImportedDeviceTypeRecord]
     @Query(sort: [SortDescriptor(\AutomationRuleRecord.createdAt, order: .forward)]) private var automations: [AutomationRuleRecord]
+    @State private var selectedTab: AppTab = .devices
 
     init() {}
 
@@ -23,10 +30,11 @@ struct RootTabView: View {
     }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             NavigationStack {
                 DevicesListView()
             }
+            .tag(AppTab.devices)
             .tabItem {
                 Label("Devices", systemImage: "switch.2")
             }
@@ -34,6 +42,7 @@ struct RootTabView: View {
             NavigationStack {
                 AutomationsListView()
             }
+            .tag(AppTab.automations)
             .tabItem {
                 Label("Automations", systemImage: "bolt.badge.automatic")
             }
@@ -41,10 +50,14 @@ struct RootTabView: View {
             NavigationStack {
                 AIPlaceholderView()
             }
+            .tag(AppTab.ai)
             .tabItem {
                 Label("RetroSmart AI", systemImage: "sparkles.rectangle.stack")
             }
         }
+        .tint(RetroSmartTheme.accent)
+        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
         .onChange(of: syncToken, initial: true) { _, _ in
             appModel.sync(
                 devices: devices,

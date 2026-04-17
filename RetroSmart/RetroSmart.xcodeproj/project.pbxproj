@@ -23,6 +23,7 @@
 		00000000000000000000020E /* HoldActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000010E /* HoldActionButton.swift */; };
 		00000000000000000000020F /* IconPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000010F /* IconPickerView.swift */; };
 		000000000000000000000210 /* ConfigTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000110 /* ConfigTextView.swift */; };
+		000000000000000000000220 /* RetroSmartUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000120 /* RetroSmartUI.swift */; };
 		000000000000000000000211 /* DevicesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000111 /* DevicesListView.swift */; };
 		000000000000000000000212 /* NearbyDeviceScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000112 /* NearbyDeviceScannerView.swift */; };
 		000000000000000000000213 /* DeviceOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000113 /* DeviceOnboardingView.swift */; };
@@ -58,6 +59,7 @@
 		00000000000000000000010E /* HoldActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldActionButton.swift; sourceTree = "<group>"; };
 		00000000000000000000010F /* IconPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconPickerView.swift; sourceTree = "<group>"; };
 		000000000000000000000110 /* ConfigTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigTextView.swift; sourceTree = "<group>"; };
+		000000000000000000000120 /* RetroSmartUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetroSmartUI.swift; sourceTree = "<group>"; };
 		000000000000000000000111 /* DevicesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesListView.swift; sourceTree = "<group>"; };
 		000000000000000000000112 /* NearbyDeviceScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyDeviceScannerView.swift; sourceTree = "<group>"; };
 		000000000000000000000113 /* DeviceOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceOnboardingView.swift; sourceTree = "<group>"; };
@@ -205,6 +207,7 @@
 				00000000000000000000010E /* HoldActionButton.swift */,
 				00000000000000000000010F /* IconPickerView.swift */,
 				000000000000000000000110 /* ConfigTextView.swift */,
+				000000000000000000000120 /* RetroSmartUI.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -317,6 +320,7 @@
 				00000000000000000000020E /* HoldActionButton.swift in Sources */,
 				00000000000000000000020F /* IconPickerView.swift in Sources */,
 				000000000000000000000210 /* ConfigTextView.swift in Sources */,
+				000000000000000000000220 /* RetroSmartUI.swift in Sources */,
 				000000000000000000000211 /* DevicesListView.swift in Sources */,
 				000000000000000000000212 /* NearbyDeviceScannerView.swift in Sources */,
 				000000000000000000000213 /* DeviceOnboardingView.swift in Sources */,

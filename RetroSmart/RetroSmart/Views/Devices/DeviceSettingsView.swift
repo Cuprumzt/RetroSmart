@@ -32,8 +32,36 @@ struct DeviceSettingsView: View {
         loadedConfig?.config.ui.settingsPage
     }
 
+    private var connectionState: DeviceConnectionState {
+        appModel.bleManager.connectionStates[device.deviceID] ?? .disconnected
+    }
+
     var body: some View {
-        List {
+        Form {
+            Section {
+                DeviceSettingsSummaryCard(
+                    customName: customName,
+                    iconSystemName: iconSystemName,
+                    typeLabel: loadedConfig?.config.module.displayName ?? assignedTypeID,
+                    connectionState: connectionState
+                )
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+
+            if assignedTypeID != device.advertisedTypeID {
+                Section {
+                    Label("Assigned type differs from the advertised type.", systemImage: "exclamationmark.triangle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(RetroSmartTheme.warning)
+                        .padding(18)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .retroSmartSurface(tone: .warning, cornerRadius: 20, shadow: false)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+            }
+
             Section("Module Information") {
                 if isEditable("custom_name") {
                     TextField("Name", text: $customName)
@@ -53,13 +81,6 @@ struct DeviceSettingsView: View {
                 }
             }
 
-            if assignedTypeID != device.advertisedTypeID {
-                Section {
-                    Label("Assigned type differs from the ESP32’s advertised device type. This is allowed for prototyping, but the rendered controls may not match the hardware.", systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                }
-            }
-
             if isEditable("custom_icon") {
                 Section("Icon") {
                     Button {
@@ -67,23 +88,20 @@ struct DeviceSettingsView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: iconSystemName)
-                                .font(.title3)
-                                .frame(width: 36, height: 36)
-                                .background(Color.accentColor.opacity(0.14))
-                                .foregroundStyle(Color.accentColor)
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .font(.title3.weight(.semibold))
+                                .frame(width: 40, height: 40)
+                                .background(RetroSmartTheme.accent.opacity(0.14))
+                                .foregroundStyle(RetroSmartTheme.accentStrong)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Choose Icon")
                                     .foregroundStyle(.primary)
-                                Text(iconSystemName)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
                             }
 
                             Spacer()
 
-                            Image(systemName: "chevron.up.chevron.down")
+                            Image(systemName: "chevron.right")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.tertiary)
                         }
@@ -116,7 +134,11 @@ struct DeviceSettingsView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .retroSmartScreenBackground()
+        .tint(RetroSmartTheme.accent)
         .navigationTitle("Device Settings")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Close") {
@@ -206,6 +228,36 @@ struct DeviceSettingsView: View {
     }
 }
 
+private struct DeviceSettingsSummaryCard: View {
+    let customName: String
+    let iconSystemName: String
+    let typeLabel: String
+    let connectionState: DeviceConnectionState
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: iconSystemName)
+                .font(.title2.weight(.semibold))
+                .frame(width: 52, height: 52)
+                .background(RetroSmartTheme.accent.opacity(0.14))
+                .foregroundStyle(RetroSmartTheme.accentStrong)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(customName)
+                    .font(.title3.weight(.semibold))
+                    .fontDesign(.rounded)
+            }
+
+            Spacer()
+
+            StatusBadge(state: connectionState, style: .deviceDetail)
+        }
+        .padding(20)
+        .retroSmartSurface(tone: connectionState == .connected ? .accent : .neutral)
+    }
+}
+
 private struct IconSelectionSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedSymbol: String
@@ -213,31 +265,32 @@ private struct IconSelectionSheet: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 12) {
                     Image(systemName: selectedSymbol)
-                        .font(.title2)
-                        .frame(width: 42, height: 42)
-                        .background(Color.accentColor.opacity(0.14))
-                        .foregroundStyle(Color.accentColor)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .font(.title2.weight(.semibold))
+                        .frame(width: 46, height: 46)
+                        .background(RetroSmartTheme.accent.opacity(0.14))
+                        .foregroundStyle(RetroSmartTheme.accentStrong)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Selected Icon")
+                        Text("Icon")
                             .font(.headline)
-                        Text(selectedSymbol)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .fontDesign(.rounded)
                     }
                 }
+                .padding(18)
+                .retroSmartSurface(tone: .accent)
 
                 IconPickerView(
                     selectedSymbol: $selectedSymbol,
                     suggestions: suggestions
                 )
             }
-            .padding()
+            .padding(20)
         }
+        .retroSmartScreenBackground()
         .navigationTitle("Choose Icon")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

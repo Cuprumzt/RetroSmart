@@ -14,72 +14,53 @@ struct NearbyDeviceScannerView: View {
     }
 
     var body: some View {
-        List {
-            Section("Discovered Devices") {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                ScannerSummaryCard(bluetoothStateLabel: appModel.bleManager.bluetoothStateLabel)
+
+                RetroSmartSectionHeader(
+                    eyebrow: "Nearby",
+                    title: "Discovered devices"
+                )
+
                 if appModel.bleManager.nearbyPeripherals.isEmpty {
-                    Label("Scanning for RetroSmart devices…", systemImage: "dot.radiowaves.left.and.right")
-                        .foregroundStyle(.secondary)
+                    RetroSmartEmptyStateCard(
+                        title: "Scanning for RetroSmart devices",
+                        message: "Keep the module powered nearby.",
+                        systemImage: "dot.radiowaves.left.and.right",
+                        tone: .accent
+                    )
+                } else {
+                    ForEach(appModel.bleManager.nearbyPeripherals) { peripheral in
+                        Button {
+                            Task {
+                                await resolve(peripheral: peripheral)
+                            }
+                        } label: {
+                            NearbyDeviceRow(
+                                peripheral: peripheral,
+                                signalLabel: signalLabel(for: peripheral.rssi),
+                                isResolving: resolvingPeripheralID == peripheral.peripheralIdentifier
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(resolvingPeripheralID != nil)
+                    }
                 }
 
-                ForEach(appModel.bleManager.nearbyPeripherals) { peripheral in
-                    Button {
-                        Task {
-                            await resolve(peripheral: peripheral)
-                        }
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(peripheral.name)
-                                    .font(.headline)
-                                Text(signalLabel(for: peripheral.rssi))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if resolvingPeripheralID == peripheral.peripheralIdentifier {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.tertiary)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(resolvingPeripheralID != nil)
+                if hasTroubleshootingInfo {
+                    ScannerTroubleshootingCard(
+                        bluetoothStateLabel: appModel.bleManager.bluetoothStateLabel,
+                        debugMessages: Array(appModel.bleManager.debugMessages.suffix(6)),
+                        isExpanded: $showingTroubleshooting
+                    )
                 }
             }
-
-            if hasTroubleshootingInfo {
-                Section {
-                    DisclosureGroup("Troubleshooting", isExpanded: $showingTroubleshooting) {
-                        LabeledContent("Bluetooth", value: appModel.bleManager.bluetoothStateLabel.capitalized)
-                            .font(.subheadline)
-
-                        if appModel.bleManager.bluetoothState != .poweredOn {
-                            Text("Bluetooth must be powered on and allowed for RetroSmart before nearby modules can appear.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text("If your module still does not appear, check the ESP32 serial monitor and confirm advertising started.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if !appModel.bleManager.debugMessages.isEmpty {
-                            Divider()
-                            ForEach(appModel.bleManager.debugMessages.suffix(6), id: \.self) { message in
-                                Text(message)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .tint(.primary)
-                }
-            }
+            .padding(.horizontal, 20)
+            .padding(.top, 14)
+            .padding(.bottom, 32)
         }
-        .listStyle(.insetGrouped)
+        .retroSmartScreenBackground()
         .navigationTitle("Add Nearby Device")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -159,5 +140,108 @@ struct NearbyDeviceScannerView: View {
                 }
             }
         )
+    }
+}
+
+private struct ScannerSummaryCard: View {
+    let bluetoothStateLabel: String
+
+    private var isBluetoothReady: Bool {
+        bluetoothStateLabel == "poweredOn"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Nearby devices")
+                .font(.title3.weight(.semibold))
+                .fontDesign(.rounded)
+
+            RetroSmartTag(
+                title: bluetoothStateLabel.capitalized,
+                systemImage: "bolt.horizontal.circle",
+                tone: isBluetoothReady ? .success : .warning
+            )
+        }
+        .padding(20)
+        .retroSmartSurface(tone: .accent)
+    }
+}
+
+private struct NearbyDeviceRow: View {
+    let peripheral: NearbyPeripheral
+    let signalLabel: String
+    let isResolving: Bool
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "dot.radiowaves.left.and.right")
+                .font(.title3.weight(.semibold))
+                .frame(width: 42, height: 42)
+                .background(RetroSmartTheme.accent.opacity(0.14))
+                .foregroundStyle(RetroSmartTheme.accentStrong)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(peripheral.name)
+                    .font(.headline)
+                    .fontDesign(.rounded)
+
+                Text(signalLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if isResolving {
+                ProgressView()
+                    .tint(RetroSmartTheme.accent)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(16)
+        .retroSmartSurface()
+    }
+}
+
+private struct ScannerTroubleshootingCard: View {
+    let bluetoothStateLabel: String
+    let debugMessages: [String]
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        DisclosureGroup("Troubleshooting", isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 12) {
+                LabeledContent("Bluetooth", value: bluetoothStateLabel.capitalized)
+                    .font(.subheadline)
+
+                if bluetoothStateLabel != "poweredOn" {
+                    Text("Turn on Bluetooth for RetroSmart.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("If it still does not appear, check ESP32 advertising.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if !debugMessages.isEmpty {
+                    Divider()
+
+                    ForEach(debugMessages, id: \.self) { message in
+                        Text(message)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.top, 10)
+        }
+        .tint(.primary)
+        .padding(20)
+        .retroSmartSurface()
     }
 }

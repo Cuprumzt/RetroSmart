@@ -27,10 +27,26 @@ struct DeviceOnboardingView: View {
 
     var body: some View {
         Form {
+            Section {
+                DeviceOnboardingSummaryCard(
+                    customName: customName,
+                    iconSystemName: iconSystemName,
+                    advertisedTypeID: draft.advertisedTypeID
+                )
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+
             if assignedTypeID != draft.advertisedTypeID {
                 Section {
-                    Label("Assigned type differs from the module’s advertised type. Controls and automation options may not match the real hardware.", systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
+                    Label("Assigned type differs from the advertised type.", systemImage: "exclamationmark.triangle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(RetroSmartTheme.warning)
+                        .padding(18)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .retroSmartSurface(tone: .warning, cornerRadius: 20, shadow: false)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                 }
             }
 
@@ -50,10 +66,11 @@ struct DeviceOnboardingView: View {
                     selectedSymbol: $iconSystemName,
                     suggestions: appModel.configRegistry.config(for: assignedTypeID)?.config.ui.iconSuggestions ?? []
                 )
+                .padding(.vertical, 8)
             }
 
-            Section {
-                DisclosureGroup("Technical Details", isExpanded: $showingTechnicalDetails) {
+            Section("Inspect") {
+                DisclosureGroup("Details", isExpanded: $showingTechnicalDetails) {
                     LabeledContent("Device ID", value: draft.deviceID)
                     LabeledContent("Advertised Type", value: draft.advertisedTypeID)
                     LabeledContent("Firmware", value: draft.firmwareVersion)
@@ -61,6 +78,9 @@ struct DeviceOnboardingView: View {
                 .tint(.primary)
             }
         }
+        .scrollContentBackground(.hidden)
+        .retroSmartScreenBackground()
+        .tint(RetroSmartTheme.accent)
         .navigationTitle("Confirm Device")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -137,5 +157,34 @@ struct DeviceOnboardingView: View {
                 }
             }
         )
+    }
+}
+
+private struct DeviceOnboardingSummaryCard: View {
+    let customName: String
+    let iconSystemName: String
+    let advertisedTypeID: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: iconSystemName)
+                .font(.title2.weight(.semibold))
+                .frame(width: 52, height: 52)
+                .background(RetroSmartTheme.accent.opacity(0.14))
+                .foregroundStyle(RetroSmartTheme.accentStrong)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(customName)
+                    .font(.title3.weight(.semibold))
+                    .fontDesign(.rounded)
+            }
+
+            Spacer()
+
+            RetroSmartTag(title: "Nearby", systemImage: "dot.radiowaves.left.and.right", tone: .accent)
+        }
+        .padding(20)
+        .retroSmartSurface(tone: .accent)
     }
 }

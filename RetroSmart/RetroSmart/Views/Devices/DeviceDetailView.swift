@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DeviceDetailView: View {
     @EnvironmentObject private var appModel: AppModel
+
     let device: DeviceRecord
 
     @State private var showingSettings = false
@@ -9,6 +10,10 @@ struct DeviceDetailView: View {
 
     private var assignedConfig: LoadedModuleConfig? {
         appModel.configRegistry.config(for: device.assignedTypeID)
+    }
+
+    private var connectionState: DeviceConnectionState {
+        appModel.bleManager.connectionStates[device.deviceID] ?? .disconnected
     }
 
     private var liveState: LiveDeviceState? {
@@ -24,72 +29,66 @@ struct DeviceDetailView: View {
     }
 
     var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Image(systemName: device.iconSystemName)
-                            .font(.largeTitle)
-                            .foregroundStyle(Color.accentColor)
-                        Spacer()
-                        StatusBadge(
-                            state: appModel.bleManager.connectionStates[device.deviceID] ?? .disconnected,
-                            style: .deviceDetail
-                        )
-                    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                DeviceHeaderCard(
+                    device: device,
+                    typeLabel: typeLabel,
+                    connectionState: connectionState,
+                    lastUpdate: liveState?.lastUpdate,
+                    showsSecondaryLabel: showsSecondaryLabel
+                )
 
-                    Text(device.customName)
-                        .font(.title2.weight(.semibold))
-                    if showsSecondaryLabel {
-                        Text(typeLabel)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 4)
-            }
+                if let assignedConfig {
+                    RetroSmartSectionHeader(
+                        eyebrow: "Controls",
+                        title: "Controls & readings"
+                    )
 
-            if let assignedConfig {
-                Section("Controls & Readings") {
                     DeviceWidgetRenderer(
                         device: device,
                         config: assignedConfig.config,
                         liveState: liveState
                     )
+                } else {
+                    RetroSmartEmptyStateCard(
+                        title: "Module type unavailable",
+                        message: "Re-import it or choose another type.",
+                        systemImage: "exclamationmark.triangle.fill",
+                        tone: .warning
+                    )
                 }
-            } else {
-                Section {
-                    Text("The assigned module type is unavailable. Re-import the type or choose another type in settings.")
-                        .foregroundStyle(.secondary)
-                }
-            }
 
-            Section {
-                DisclosureGroup("Technical Details", isExpanded: $showingTechnicalDetails) {
-                    if device.assignedTypeID != device.advertisedTypeID {
-                        Label("Assigned type differs from the module’s advertised type.", systemImage: "exclamationmark.triangle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.orange)
-                            .padding(.bottom, 8)
-                    }
+                RetroSmartSectionHeader(
+                    eyebrow: "Inspect",
+                    title: "Technical details"
+                )
 
-                    LabeledContent("Module Type", value: typeLabel)
-                    LabeledContent("Advertised Type", value: device.advertisedTypeID)
-                    if let lastUpdate = liveState?.lastUpdate {
-                        LabeledContent("Last Update", value: lastUpdate.formatted(date: .numeric, time: .shortened))
-                    }
-                    if let capabilitySummary = liveState?.lastCapabilitySummary, !capabilitySummary.actions.isEmpty {
-                        LabeledContent("Actions", value: capabilitySummary.actions.joined(separator: ", "))
-                    }
-                }
-                .tint(.primary)
+                DeviceTechnicalDetailsCard(
+                    device: device,
+                    typeLabel: typeLabel,
+                    liveState: liveState,
+                    isExpanded: $showingTechnicalDetails
+                )
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 14)
+            .padding(.bottom, 32)
         }
+        .retroSmartScreenBackground()
         .navigationTitle(device.customName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Settings") {
+                Button {
                     showingSettings = true
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.headline.weight(.semibold))
+                        .frame(width: 34, height: 34)
+                        .background(RetroSmartTheme.accent.opacity(0.14))
+                        .foregroundStyle(RetroSmartTheme.accentStrong)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
         }
@@ -98,6 +97,104 @@ struct DeviceDetailView: View {
                 DeviceSettingsView(device: device)
             }
         }
+    }
+}
+
+private struct DeviceHeaderCard: View {
+    let device: DeviceRecord
+    let typeLabel: String
+    let connectionState: DeviceConnectionState
+    let lastUpdate: Date?
+    let showsSecondaryLabel: Bool
+
+    private var tone: RetroSmartSurfaceTone {
+        switch connectionState {
+        case .connected:
+            return .accent
+        case .connecting:
+            return .warning
+        case .disconnected:
+            return .neutral
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: device.iconSystemName)
+                    .font(.title2.weight(.semibold))
+                    .frame(width: 52, height: 52)
+                    .background(RetroSmartTheme.accent.opacity(0.14))
+                    .foregroundStyle(RetroSmartTheme.accentStrong)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(device.customName)
+                        .font(.title2.weight(.semibold))
+                        .fontDesign(.rounded)
+
+                    if showsSecondaryLabel {
+                        Text(typeLabel)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer(minLength: 12)
+
+                StatusBadge(state: connectionState, style: .deviceDetail)
+                    .layoutPriority(1)
+            }
+
+            if let lastUpdate {
+                RetroSmartTag(
+                    title: "Updated \(lastUpdate.formatted(date: .omitted, time: .shortened))",
+                    systemImage: "clock",
+                    tone: .subdued
+                )
+            }
+        }
+        .padding(22)
+        .retroSmartSurface(tone: tone)
+    }
+}
+
+private struct DeviceTechnicalDetailsCard: View {
+    let device: DeviceRecord
+    let typeLabel: String
+    let liveState: LiveDeviceState?
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        DisclosureGroup("Show details", isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 12) {
+                if device.assignedTypeID != device.advertisedTypeID {
+                    Label("Assigned type differs from the module’s advertised type.", systemImage: "exclamationmark.triangle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(RetroSmartTheme.warning)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .retroSmartSurface(tone: .warning, cornerRadius: 18, shadow: false)
+                }
+
+                LabeledContent("Device ID", value: device.deviceID)
+                LabeledContent("Module Type", value: typeLabel)
+                LabeledContent("Advertised Type", value: device.advertisedTypeID)
+                LabeledContent("Firmware", value: device.firmwareVersion)
+
+                if let lastUpdate = liveState?.lastUpdate {
+                    LabeledContent("Last Update", value: lastUpdate.formatted(date: .numeric, time: .shortened))
+                }
+
+                if let capabilitySummary = liveState?.lastCapabilitySummary, !capabilitySummary.actions.isEmpty {
+                    LabeledContent("Actions", value: capabilitySummary.actions.joined(separator: ", "))
+                }
+            }
+            .padding(.top, 12)
+        }
+        .tint(.primary)
+        .padding(20)
+        .retroSmartSurface()
     }
 }
 
@@ -134,7 +231,7 @@ private struct DeviceWidgetRenderer: View {
     }
 
     private var motorDirectionalLayout: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             HStack(spacing: 12) {
                 directionalMotorButton(
                     for: motorReverseWidget,
@@ -150,26 +247,7 @@ private struct DeviceWidgetRenderer: View {
             }
 
             if let motorStateWidget {
-                VStack(spacing: 6) {
-                    Text(motorStateWidget.label ?? "Motor State")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-
-                    let statePresentation = motorStatePresentation(for: motorStateWidget)
-
-                    Label {
-                        Text(statePresentation.title)
-                            .font(.title3.weight(.semibold))
-                    } icon: {
-                        Image(systemName: statePresentation.systemImage)
-                            .font(.headline.weight(.semibold))
-                    }
-                    .labelStyle(.titleAndIcon)
-                    .foregroundStyle(statePresentation.tint)
-                    .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.top, 2)
+                motorStateCard(for: motorStateWidget)
             }
 
             ForEach(remainingMotorWidgets) { widget in
@@ -204,28 +282,41 @@ private struct DeviceWidgetRenderer: View {
         switch widget.type {
         case .section:
             return AnyView(
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 12) {
                     if let label = widget.label {
                         Text(label)
                             .font(.headline)
+                            .fontDesign(.rounded)
                     }
+
                     ForEach(widget.widgets) { child in
                         widgetView(for: child)
                     }
                 }
+                .padding(18)
+                .retroSmartSurface()
             )
         case .text:
-            return AnyView(Text(widget.text ?? widget.label ?? ""))
+            return AnyView(
+                Text(widget.text ?? widget.label ?? "")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(18)
+                    .retroSmartSurface(tone: .subdued, cornerRadius: 20, shadow: false)
+            )
         case .status:
             return AnyView(
                 HStack {
                     Text(widget.label ?? "Status")
+                        .font(.headline)
+                        .fontDesign(.rounded)
                     Spacer()
                     StatusBadge(
                         state: appModel.bleManager.connectionStates[device.deviceID] ?? .disconnected,
                         style: .deviceDetail
                     )
                 }
+                .padding(18)
+                .retroSmartSurface()
             )
         case .button:
             return AnyView(
@@ -233,6 +324,8 @@ private struct DeviceWidgetRenderer: View {
                     send(actionID: widget.action, value: nil)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(RetroSmartTheme.accent)
+                .controlSize(.large)
                 .disabled(!isDeviceOnline)
             )
         case .holdButton:
@@ -240,7 +333,7 @@ private struct DeviceWidgetRenderer: View {
                 HoldActionButton(
                     title: widget.label ?? "Hold",
                     systemImage: nil,
-                    tint: .accentColor,
+                    tint: RetroSmartTheme.accent,
                     onPress: {
                         send(actionID: widget.action, value: nil)
                     },
@@ -253,13 +346,20 @@ private struct DeviceWidgetRenderer: View {
         case .slider:
             let range = (widget.min ?? 0)...(widget.max ?? 100)
             return AnyView(
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(alignment: .firstTextBaseline) {
                         Text(widget.label ?? "Value")
+                            .font(.headline)
+                            .fontDesign(.rounded)
+
                         Spacer()
+
                         Text(Int(sliderValue(for: widget)).description)
-                            .foregroundStyle(.secondary)
+                            .font(.title3.weight(.semibold))
+                            .fontDesign(.rounded)
+                            .foregroundStyle(RetroSmartTheme.accentStrong)
                     }
+
                     Slider(
                         value: Binding(
                             get: { sliderValue(for: widget) },
@@ -276,46 +376,17 @@ private struct DeviceWidgetRenderer: View {
                             }
                         }
                     )
+                    .tint(RetroSmartTheme.accent)
                     .onChange(of: sliderValues[widget.id] ?? sliderValue(for: widget)) { _, _ in
                         scheduleSliderCommit(for: widget, delayNanoseconds: 60_000_000)
                     }
                     .disabled(!isDeviceOnline)
                 }
+                .padding(18)
+                .retroSmartSurface(tone: .accent)
             )
         case .reading:
-            if widget.id == "servo_angle_readback" {
-                let positionPresentation = servoPositionPresentation(for: widget)
-
-                return AnyView(
-                    VStack(spacing: 8) {
-                        Label {
-                            Text(widget.label ?? widget.source ?? "Reading")
-                                .font(.headline)
-                        } icon: {
-                            Image(systemName: positionPresentation.systemImage)
-                                .font(.headline.weight(.semibold))
-                        }
-                        .foregroundStyle(positionPresentation.tint)
-
-                        Text(positionPresentation.valueText)
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(positionPresentation.tint)
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                )
-            }
-
-            return AnyView(
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(widget.label ?? widget.source ?? "Reading")
-                        .font(.headline)
-                    Text(displayValue(for: widget))
-                        .font(.title3.weight(.semibold))
-                }
-                .padding(.vertical, 4)
-            )
+            return AnyView(readingCard(for: widget))
         case .toggle:
             return AnyView(
                 Toggle(isOn: Binding(
@@ -325,65 +396,120 @@ private struct DeviceWidgetRenderer: View {
                         send(actionID: widget.action, value: .bool(newValue))
                     }
                 )) {
-                    Text(widget.label ?? "Toggle")
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(widget.label ?? "Toggle")
+                            .font(.headline)
+                            .fontDesign(.rounded)
+                    }
                 }
+                .tint(RetroSmartTheme.accent)
                 .disabled(!isDeviceOnline)
+                .padding(18)
+                .retroSmartSurface()
             )
         }
+    }
+
+    private func readingCard(for widget: WidgetConfig) -> some View {
+        let presentation = readingPresentation(for: widget)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Label(widget.label ?? widget.source ?? "Reading", systemImage: presentation.systemImage)
+                .font(.headline)
+                .fontDesign(.rounded)
+                .foregroundStyle(presentation.labelColor)
+
+            if widget.id == "servo_angle_readback" {
+                let servoPresentation = servoPositionPresentation(for: widget)
+
+                Text(servoPresentation.valueText)
+                    .font(.title.weight(.semibold))
+                    .fontDesign(.rounded)
+                    .foregroundStyle(servoPresentation.tint)
+
+                RetroSmartTag(
+                    title: servoPresentation.statusText,
+                    systemImage: servoPresentation.systemImage,
+                    tone: servoPresentation.tone
+                )
+            } else {
+                Text(displayValue(for: widget))
+                    .font(presentation.valueFont)
+                    .fontDesign(.rounded)
+                    .foregroundStyle(.primary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .retroSmartSurface(tone: presentation.tone)
     }
 
     private func directionalMotorButton(
         for widget: WidgetConfig?,
         fallbackTitle: String,
         systemImage: String
-    ) -> AnyView {
-        guard let widget else {
-            return AnyView(
+    ) -> some View {
+        Group {
+            if let widget {
+                HoldActionButton(
+                    title: widget.label ?? fallbackTitle,
+                    systemImage: systemImage,
+                    tint: RetroSmartTheme.accent,
+                    onPress: {
+                        send(actionID: widget.action, value: nil)
+                    },
+                    onRelease: {
+                        send(actionID: widget.releaseAction, value: nil)
+                    }
+                )
+                .disabled(!isDeviceOnline)
+                .opacity(isDeviceOnline ? 1 : 0.5)
+            } else {
                 Color.clear
-                    .frame(maxWidth: .infinity, minHeight: 96)
-            )
+                    .frame(maxWidth: .infinity, minHeight: 112)
+            }
         }
-
-        let title = widget.label ?? fallbackTitle
-        let isEnabled = isDeviceOnline
-
-        return AnyView(
-            HoldActionButton(
-                title: title,
-                systemImage: systemImage,
-                tint: .accentColor,
-                onPress: {
-                    send(actionID: widget.action, value: nil)
-                },
-                onRelease: {
-                    send(actionID: widget.releaseAction, value: nil)
-                }
-            )
-            .disabled(!isEnabled)
-            .opacity(isEnabled ? 1 : 0.5)
-        )
     }
 
-    private func motorStatePresentation(for widget: WidgetConfig) -> (title: String, systemImage: String, tint: Color) {
+    private func motorStateCard(for widget: WidgetConfig) -> some View {
+        let statePresentation = motorStatePresentation(for: widget)
+
+        return VStack(spacing: 8) {
+            Text(widget.label ?? "Motor State")
+                .font(.headline)
+                .fontDesign(.rounded)
+                .foregroundStyle(.secondary)
+
+            Label(statePresentation.title, systemImage: statePresentation.systemImage)
+                .font(.title3.weight(.semibold))
+                .fontDesign(.rounded)
+                .foregroundStyle(statePresentation.tint)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(20)
+        .retroSmartSurface(tone: statePresentation.tone)
+    }
+
+    private func motorStatePresentation(for widget: WidgetConfig) -> (title: String, systemImage: String, tint: Color, tone: RetroSmartSurfaceTone) {
         guard let source = widget.source, let value = liveState?.values[source]?.stringValue else {
-            return ("No Data Yet", "questionmark.circle", .secondary)
+            return ("No Data Yet", "questionmark.circle", RetroSmartTheme.quiet, .subdued)
         }
 
         switch value {
         case "forward":
-            return ("Forward", "arrow.right.circle.fill", .accentColor)
+            return ("Forward", "arrow.right.circle.fill", RetroSmartTheme.accentStrong, .accent)
         case "reverse":
-            return ("Reverse", "arrow.left.circle.fill", .accentColor)
+            return ("Reverse", "arrow.left.circle.fill", RetroSmartTheme.accentStrong, .accent)
         case "stopped":
-            return ("Stopped", "pause.circle.fill", .secondary)
+            return ("Stopped", "pause.circle.fill", RetroSmartTheme.quiet, .neutral)
         default:
-            return (value.replacingOccurrences(of: "_", with: " ").capitalized, "gearshape.2.fill", .secondary)
+            return (value.replacingOccurrences(of: "_", with: " ").capitalized, "gearshape.2.fill", RetroSmartTheme.quiet, .neutral)
         }
     }
 
-    private func servoPositionPresentation(for widget: WidgetConfig) -> (valueText: String, systemImage: String, tint: Color) {
+    private func servoPositionPresentation(for widget: WidgetConfig) -> (valueText: String, statusText: String, systemImage: String, tint: Color, tone: RetroSmartSurfaceTone) {
         guard let source = widget.source, let currentAngle = liveState?.values[source]?.doubleValue else {
-            return ("No data yet", "questionmark.circle", .secondary)
+            return ("No data yet", "Waiting for device state", "questionmark.circle", RetroSmartTheme.quiet, .subdued)
         }
 
         let targetAngle = sliderValues["servo_angle"] ?? currentAngle
@@ -391,10 +517,30 @@ private struct DeviceWidgetRenderer: View {
         let valueText = "\(Int(currentAngle.rounded()))°"
 
         if isMoving {
-            return (valueText, "arrow.triangle.2.circlepath.circle.fill", .accentColor)
+            return (valueText, "Servo moving", "arrow.triangle.2.circlepath.circle.fill", RetroSmartTheme.accentStrong, .accent)
         }
 
-        return (valueText, "checkmark.circle.fill", .secondary)
+        return (valueText, "Position reached", "checkmark.circle.fill", RetroSmartTheme.quiet, .neutral)
+    }
+
+    private func readingPresentation(for widget: WidgetConfig) -> (systemImage: String, tone: RetroSmartSurfaceTone, labelColor: Color, valueFont: Font) {
+        let identifier = [widget.id, widget.source, widget.label]
+            .compactMap { $0?.lowercased() }
+            .joined(separator: " ")
+
+        if identifier.contains("temperature") {
+            return ("thermometer.medium", .accent, RetroSmartTheme.accentStrong, .title.weight(.semibold))
+        }
+
+        if identifier.contains("quality_score") || identifier.contains("air quality") {
+            return ("aqi.medium", .accent, RetroSmartTheme.accentStrong, .largeTitle.weight(.semibold))
+        }
+
+        if identifier.contains("voc") {
+            return ("wind", .neutral, .primary, .title2.weight(.semibold))
+        }
+
+        return ("gauge.with.needle", .neutral, .primary, .title2.weight(.semibold))
     }
 
     private func sliderValue(for widget: WidgetConfig) -> Double {

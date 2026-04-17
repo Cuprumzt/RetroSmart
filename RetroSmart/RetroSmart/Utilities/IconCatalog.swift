@@ -39,7 +39,7 @@ enum IconCatalog {
         "camera",
         "speaker.wave.2",
         "tv",
-        "remote",
+        "appletvremote.gen1",
         "refrigerator",
         "washer",
         "dishwasher",
@@ -50,7 +50,7 @@ enum IconCatalog {
         "bed.double",
         "sofa",
         "house",
-        "garage",
+        "door.garage.closed",
         "leaf",
     ]
 }

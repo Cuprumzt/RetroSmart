@@ -119,3 +119,43 @@ enum AutomationComparisonKind: String, CaseIterable, Identifiable {
         }
     }
 }
+
+enum AutomationTriggerMode: String, CaseIterable, Identifiable {
+    case device
+    case time
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .device:
+            return "Device"
+        case .time:
+            return "Time"
+        }
+    }
+}
+
+enum AutomationSpecialTrigger {
+    static let timeDeviceID = "__retrosmart_time__"
+    static let timeSourceID = "__retrosmart_time_of_day__"
+}
+
+enum AutomationActionSupport {
+    static let timedMotorActionIDs: Set<String> = [
+        "motor_run_forward",
+        "motor_run_reverse",
+    ]
+    static let timedMotorStopActionID = "motor_stop"
+}
+
+extension AutomationRuleRecord {
+    var triggerMode: AutomationTriggerMode {
+        if triggerDeviceID == AutomationSpecialTrigger.timeDeviceID,
+           triggerSourceID == AutomationSpecialTrigger.timeSourceID {
+            return .time
+        }
+
+        return .device
+    }
+}

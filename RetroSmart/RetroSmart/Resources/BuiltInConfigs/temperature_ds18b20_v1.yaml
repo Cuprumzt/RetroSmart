@@ -61,7 +61,7 @@ capabilities:
 
 automation:
   triggers: [temperature_c]
-  actions: []
+  actions: [set_display_enabled]
 
 hardware:
   board: esp32_s3_zero

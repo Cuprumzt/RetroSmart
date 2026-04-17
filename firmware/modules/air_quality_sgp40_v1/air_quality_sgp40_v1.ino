@@ -14,7 +14,9 @@ static constexpr int PIN_DISPLAY_SCL = 8;
 static constexpr int PIN_STATUS_LED = 13;
 static constexpr float DEFAULT_TEMPERATURE_C = 25.0f;
 static constexpr float DEFAULT_HUMIDITY_RH = 50.0f;
-static constexpr uint32_t READ_INTERVAL_MS = 1000;
+static constexpr uint32_t READ_INTERVAL_MS = 2000;
+static constexpr uint32_t STATE_HEARTBEAT_MS = 15000;
+static constexpr uint32_t LOOP_DELAY_MS = 5;
 
 static RetroSmartBLEModule* gBleModule = nullptr;
 static TwoWire gSensorWire = TwoWire(0);
@@ -26,8 +28,38 @@ static bool gSensorReady = false;
 static int gVocIndex = 0;
 static int gQualityScore = 100;
 static uint32_t gLastReadMs = 0;
+static int gLastNotifiedVocIndex = -1;
+static int gLastNotifiedQualityScore = -1;
+static bool gLastNotifiedDisplayPresent = false;
+static bool gLastNotifiedDisplayEnabled = false;
+static uint32_t gLastNotifyMs = 0;
+
+static bool shouldNotifyAirQuality(bool force = false) {
+  const bool displayPresent = gDisplay.isPresent();
+  const bool displayEnabled = gDisplay.isEnabled();
+  const uint32_t now = millis();
+
+  if (
+    force ||
+    gQualityScore != gLastNotifiedQualityScore ||
+    gVocIndex != gLastNotifiedVocIndex ||
+    displayPresent != gLastNotifiedDisplayPresent ||
+    displayEnabled != gLastNotifiedDisplayEnabled ||
+    (now - gLastNotifyMs) >= STATE_HEARTBEAT_MS
+  ) {
+    gLastNotifiedQualityScore = gQualityScore;
+    gLastNotifiedVocIndex = gVocIndex;
+    gLastNotifiedDisplayPresent = displayPresent;
+    gLastNotifiedDisplayEnabled = displayEnabled;
+    gLastNotifyMs = now;
+    return true;
+  }
+
+  return false;
+}
 
 static void notifyAirQuality() {
+  gDisplay.refresh();
   JsonDocument state;
   state["readings"]["quality_score"] = gQualityScore;
   state["readings"]["voc_index"] = gVocIndex;
@@ -97,7 +129,7 @@ void setup() {
     .deviceId = retroSmartDeviceId("RS-AIR"),
     .deviceType = "air_quality_sgp40_v1",
     .model = "Air Quality Module",
-    .firmwareVersion = "0.4.0"
+    .firmwareVersion = "0.4.2"
   };
 
   const char* const actions[] = {"set_display_enabled"};
@@ -116,6 +148,8 @@ void setup() {
     handleCommand
   );
   gBleModule->begin();
+  readSensor();
+  notifyAirQuality();
   retroSmartLog("Air quality module setup complete");
 }
 
@@ -123,6 +157,10 @@ void loop() {
   if (millis() - gLastReadMs >= READ_INTERVAL_MS) {
     gLastReadMs = millis();
     readSensor();
-    notifyAirQuality();
+    if (shouldNotifyAirQuality()) {
+      notifyAirQuality();
+    }
   }
+
+  delay(LOOP_DELAY_MS);
 }

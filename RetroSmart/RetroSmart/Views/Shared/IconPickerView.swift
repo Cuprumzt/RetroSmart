@@ -10,7 +10,7 @@ struct IconPickerView: View {
         return merged.filter { seen.insert($0).inserted }
     }
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 4)
+    private let columns = [GridItem(.adaptive(minimum: 56, maximum: 72), spacing: 12)]
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 12) {
@@ -19,13 +19,21 @@ struct IconPickerView: View {
                     selectedSymbol = symbol
                 } label: {
                     Image(systemName: symbol)
-                        .font(.title2)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(selectedSymbol == symbol ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .font(.title3.weight(.semibold))
+                        .frame(width: 28, height: 28)
+                        .foregroundStyle(selectedSymbol == symbol ? RetroSmartTheme.accentStrong : .primary)
+                        .frame(maxWidth: .infinity, minHeight: 28)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 16)
+                    .retroSmartSurface(
+                        tone: selectedSymbol == symbol ? .accent : .subdued,
+                        cornerRadius: 18,
+                        shadow: false
+                    )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(symbol)
             }
         }
     }

@@ -10,8 +10,9 @@ static constexpr int PIN_STATUS_LED = 13;
 static constexpr uint32_t PWM_FREQUENCY_HZ = 20000;
 static constexpr uint8_t PWM_RESOLUTION_BITS = 8;
 static constexpr uint8_t PWM_DUTY = 255;
-static constexpr uint32_t IDLE_NOTIFY_MS = 1000;
+static constexpr uint32_t IDLE_NOTIFY_MS = 2000;
 static constexpr uint32_t ACTIVE_NOTIFY_MS = 250;
+static constexpr uint32_t LOOP_DELAY_MS = 2;
 
 enum class MotorState {
   stopped,
@@ -113,7 +114,7 @@ void setup() {
     .deviceId = retroSmartDeviceId("RS-DCM"),
     .deviceType = "dc_motor_drv8833_v1",
     .model = "DC Motor Module",
-    .firmwareVersion = "0.2.0"
+    .firmwareVersion = "0.2.1"
   };
 
   const char* const actions[] = {
@@ -149,4 +150,6 @@ void loop() {
     gLastStateNotifyMs = now;
     notifyMotorState();
   }
+
+  delay(LOOP_DELAY_MS);
 }

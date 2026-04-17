@@ -12,25 +12,43 @@ struct ConfigLibraryView: View {
 
     var body: some View {
         List {
+            Section {
+                ConfigLibrarySummaryCard(
+                    builtInCount: appModel.configRegistry.loadedConfigs.filter { $0.source == .builtIn }.count,
+                    importedCount: importedConfigs.count
+                )
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+
             Section("Built-in Types") {
                 ForEach(appModel.configRegistry.loadedConfigs.filter { $0.source == .builtIn }) { loadedConfig in
                     NavigationLink {
                         ConfigDetailView(loadedConfig: loadedConfig)
                     } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(loadedConfig.config.module.displayName)
-                            Text(loadedConfig.config.module.typeID)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                        ConfigLibraryRow(
+                            title: loadedConfig.config.module.displayName,
+                            subtitle: loadedConfig.config.module.typeID,
+                            detail: loadedConfig.config.module.category.capitalized,
+                            tone: .neutral
+                        )
                     }
+                    .buttonStyle(.plain)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
                 }
             }
 
             Section("Imported Types") {
                 if importedConfigs.isEmpty {
-                    Text("No imported types yet.")
-                        .foregroundStyle(.secondary)
+                    RetroSmartEmptyStateCard(
+                        title: "No imported types yet",
+                        message: nil,
+                        systemImage: "square.stack.3d.up",
+                        tone: .neutral
+                    )
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
                 }
 
                 ForEach(importedConfigs) { record in
@@ -38,18 +56,16 @@ struct ConfigLibraryView: View {
                         NavigationLink {
                             ConfigDetailView(loadedConfig: loadedConfig)
                         } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(loadedConfig.config.module.displayName)
-                                Text("\(record.typeID) • \(record.sourceName)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                if assignedCount(for: record.typeID) > 0 {
-                                    Text("Assigned to \(assignedCount(for: record.typeID)) device(s)")
-                                        .font(.caption2)
-                                        .foregroundStyle(.orange)
-                                }
-                            }
+                            ConfigLibraryRow(
+                                title: loadedConfig.config.module.displayName,
+                                subtitle: "\(record.typeID) • \(record.sourceName)",
+                                detail: assignedCount(for: record.typeID) > 0 ? "Assigned to \(assignedCount(for: record.typeID)) device(s)" : "Imported",
+                                tone: assignedCount(for: record.typeID) > 0 ? .warning : .accent
+                            )
                         }
+                        .buttonStyle(.plain)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                         .swipeActions {
                             Button(role: .destructive) {
                                 delete(record)
@@ -58,15 +74,14 @@ struct ConfigLibraryView: View {
                             }
                         }
                     } else {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(record.typeID)
-                            Text(record.sourceName)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text("Stored import is no longer valid and can only be deleted.")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
+                        ConfigLibraryRow(
+                            title: record.typeID,
+                            subtitle: record.sourceName,
+                            detail: "Stored import is no longer valid and can only be deleted.",
+                            tone: .warning
+                        )
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                         .swipeActions {
                             Button(role: .destructive) {
                                 delete(record)
@@ -78,7 +93,10 @@ struct ConfigLibraryView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .retroSmartScreenBackground()
         .navigationTitle("Module Types")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Done") {
@@ -123,11 +141,88 @@ struct ConfigLibraryView: View {
     }
 }
 
+private struct ConfigLibrarySummaryCard: View {
+    let builtInCount: Int
+    let importedCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Config library")
+                    .font(.title3.weight(.semibold))
+                    .fontDesign(.rounded)
+
+                Spacer()
+
+                RetroSmartTag(title: "YAML", tone: .subdued)
+            }
+
+            HStack(spacing: 12) {
+                RetroSmartMetricPill(title: "Built-in", value: "\(builtInCount)")
+                RetroSmartMetricPill(title: "Imported", value: "\(importedCount)", tone: importedCount == 0 ? .subdued : .accent)
+            }
+        }
+        .padding(20)
+        .retroSmartSurface(tone: .accent)
+    }
+}
+
+private struct ConfigLibraryRow: View {
+    let title: String
+    let subtitle: String
+    let detail: String
+    let tone: RetroSmartSurfaceTone
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.headline)
+                .fontDesign(.rounded)
+
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Text(detail)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(detailToneColor)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .retroSmartSurface(tone: tone, cornerRadius: 20, shadow: false)
+    }
+
+    private var detailToneColor: Color {
+        switch tone {
+        case .accent:
+            return RetroSmartTheme.accentStrong
+        case .warning:
+            return RetroSmartTheme.warning
+        default:
+            return .secondary
+        }
+    }
+}
+
 private struct ConfigDetailView: View {
     let loadedConfig: LoadedModuleConfig
 
     var body: some View {
         List {
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(loadedConfig.config.module.displayName)
+                        .font(.title3.weight(.semibold))
+                        .fontDesign(.rounded)
+
+                    RetroSmartTag(title: loadedConfig.source.rawValue, systemImage: "doc.text", tone: loadedConfig.source == .builtIn ? .neutral : .accent)
+                }
+                .padding(20)
+                .retroSmartSurface(tone: loadedConfig.source == .builtIn ? .neutral : .accent)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+
             Section("Module Information") {
                 LabeledContent("Display Name", value: loadedConfig.config.module.displayName)
                 LabeledContent("Type ID", value: loadedConfig.config.module.typeID)
@@ -145,6 +240,9 @@ private struct ConfigDetailView: View {
                 ConfigTextView(text: loadedConfig.rawYAML)
             }
         }
+        .scrollContentBackground(.hidden)
+        .retroSmartScreenBackground()
         .navigationTitle(loadedConfig.config.module.displayName)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

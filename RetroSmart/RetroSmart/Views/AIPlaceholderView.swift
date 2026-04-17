@@ -1,60 +1,75 @@
 import SwiftUI
 
 struct AIPlaceholderView: View {
-    private let cards: [(title: String, subtitle: String, icon: String)] = [
-        ("Create adaptor with AI", "Future workflow for describing appliance geometry, mounting constraints, and retrofit goals.", "square.3.layers.3d"),
-        ("Generate module code with AI", "Future workflow for turning validated configs and pinouts into firmware starting points.", "cpu"),
-        ("Coming later", "Reference photo upload, dimension capture, and creator tooling will live here in later iterations.", "sparkles"),
+    private let cards: [(title: String, subtitle: String, detail: String, icon: String)] = [
+        (
+            "Create adaptor with AI",
+            "Adaptor workflow",
+            "Turn a module idea into a clean YAML adaptor draft with pins, readings, actions, and UI defaults.",
+            "square.3.layers.3d"
+        ),
+        (
+            "Generate module code with AI",
+            "Firmware workflow",
+            "Use the adaptor definition to sketch Arduino-based ESP32 firmware with the expected BLE contract and state payloads.",
+            "cpu"
+        ),
+        (
+            "Coming later",
+            "Photos and dimensions",
+            "Use reference photos and rough measurements to help map controls, naming, and enclosure-aware module setup.",
+            "sparkles"
+        ),
     ]
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("RetroSmart AI")
                         .font(.largeTitle.weight(.semibold))
-                    Text("This stays intentionally non-functional in v1. It marks the future workflow surface without hiding the current prototype behind unfinished generation features.")
+                        .fontDesign(.rounded)
+
+                    Text("A future workspace for faster adaptor setup, firmware scaffolding, and hardware-aware suggestions.")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
+
+                    RetroSmartTag(title: "Placeholder", systemImage: "sparkles", tone: .warning)
                 }
-                .padding(22)
-                .background(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.orange.opacity(0.2),
-                                    Color(uiColor: .secondarySystemBackground),
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                .padding(24)
+                .retroSmartSurface(tone: .warning)
+
+                RetroSmartSectionHeader(
+                    eyebrow: "Future",
+                    title: "Planned workflows",
+                    subtitle: "These are the first AI-assisted flows planned for RetroSmart."
                 )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .stroke(Color.orange.opacity(0.18), lineWidth: 1)
-                }
 
                 ForEach(cards, id: \.title) { card in
                     VStack(alignment: .leading, spacing: 10) {
                         Label(card.title, systemImage: card.icon)
                             .font(.headline)
+                            .fontDesign(.rounded)
+
                         Text(card.subtitle)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
+
+                        Text(card.detail)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary.opacity(0.9))
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(18)
-                    .background(Color(uiColor: .secondarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(Color.primary.opacity(0.06), lineWidth: 1)
-                    }
+                    .retroSmartSurface()
                 }
             }
-            .padding()
+            .padding(.horizontal, 20)
+            .padding(.top, 14)
+            .padding(.bottom, 32)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .retroSmartScreenBackground()
         .navigationTitle("RetroSmart AI")
+        .navigationBarTitleDisplayMode(.large)
     }
 }

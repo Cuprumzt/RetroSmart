@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct YAMLPasteImportView: View {
     @Environment(\.dismiss) private var dismiss
@@ -12,23 +12,46 @@ struct YAMLPasteImportView: View {
 
     var body: some View {
         Form {
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Paste YAML")
+                        .font(.title3.weight(.semibold))
+                        .fontDesign(.rounded)
+                }
+                .padding(20)
+                .retroSmartSurface(tone: .accent)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+
             Section("Source") {
                 TextField("Label", text: $sourceName)
             }
 
             Section("YAML") {
-                TextEditor(text: $yamlText)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(minHeight: 260)
-            }
+                ZStack(alignment: .topLeading) {
+                    if yamlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("schema_version: 1\nmodule:\n  type_id: ...")
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 8)
+                    }
 
-            Section {
-                Text("Importing a type with the same `type_id` replaces the active definition globally for all devices assigned to that type.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    TextEditor(text: $yamlText)
+                        .font(.system(.body, design: .monospaced))
+                        .scrollContentBackground(.hidden)
+                        .frame(minHeight: 280)
+                }
+                .padding(8)
+                .retroSmartSurface(tone: .subdued, cornerRadius: 20, shadow: false)
             }
         }
+        .scrollContentBackground(.hidden)
+        .retroSmartScreenBackground()
+        .tint(RetroSmartTheme.accent)
         .navigationTitle("Paste YAML")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Cancel") {

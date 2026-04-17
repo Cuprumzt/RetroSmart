@@ -120,6 +120,7 @@ class RetroSmartBLEModule {
   void begin() {
     retroSmartLog("Booting BLE module");
     BLEDevice::init(bleName_.c_str());
+    BLEDevice::setPower(ESP_PWR_LVL_N0);
     BLEServer* server = BLEDevice::createServer();
     server->setCallbacks(&serverCallbacks_);
 
@@ -178,6 +179,11 @@ class RetroSmartBLEModule {
     String output;
     serializeJson(stateDocument, output);
     stateCharacteristic_->setValue(output.c_str());
+
+    if (!connected_) {
+      return;
+    }
+
     stateCharacteristic_->notify();
     retroSmartLogJson("State notify", output);
   }

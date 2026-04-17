@@ -17,41 +17,32 @@ struct DevicesListView: View {
         devices.filter { appModel.bleManager.connectionStates[$0.deviceID] == .connected }.count
     }
 
+    private var availableTypeCount: Int {
+        appModel.configRegistry.loadedConfigs.count
+    }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 22) {
                 DevicesOverviewCard(
                     deviceCount: devices.count,
-                    connectedCount: connectedDeviceCount
+                    connectedCount: connectedDeviceCount,
+                    typeCount: availableTypeCount
                 )
 
                 if devices.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Label("No RetroSmart devices yet", systemImage: "switch.2")
-                            .font(.headline)
-                        Text("Use the plus button to add a nearby module or import a type definition.")
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(20)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.accentColor.opacity(0.14),
-                                        Color(uiColor: .secondarySystemGroupedBackground),
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                    RetroSmartEmptyStateCard(
+                        title: "No RetroSmart devices yet",
+                        message: "Use + to add or import one.",
+                        systemImage: "switch.2",
+                        tone: .accent
                     )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(Color.accentColor.opacity(0.12), lineWidth: 1)
-                    }
                 } else {
+                    RetroSmartSectionHeader(
+                        eyebrow: "Library",
+                        title: "Your devices"
+                    )
+
                     LazyVGrid(
                         columns: [
                             GridItem(.flexible(), spacing: 14),
@@ -70,31 +61,16 @@ struct DevicesListView: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 24)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 32)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .retroSmartScreenBackground()
         .navigationTitle("RetroSmart")
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("Add nearby device", systemImage: "dot.radiowaves.left.and.right") {
-                        showingScanner = true
-                    }
-                    Button("Import config from file", systemImage: "square.and.arrow.down") {
-                        showingFileImporter = true
-                    }
-                    Button("Paste YAML config", systemImage: "doc.text") {
-                        showingPasteImporter = true
-                    }
-                    Divider()
-                    Button("Manage module types", systemImage: "square.stack.3d.up") {
-                        showingConfigLibrary = true
-                    }
-                } label: {
-                    Image(systemName: "plus")
-                }
+                addMenu
             }
         }
         .sheet(isPresented: $showingScanner) {
@@ -148,6 +124,31 @@ struct DevicesListView: View {
         })
     }
 
+    private var addMenu: some View {
+        Menu {
+            Button("Add nearby device", systemImage: "dot.radiowaves.left.and.right") {
+                showingScanner = true
+            }
+            Button("Import config from file", systemImage: "square.and.arrow.down") {
+                showingFileImporter = true
+            }
+            Button("Paste YAML config", systemImage: "doc.text") {
+                showingPasteImporter = true
+            }
+            Divider()
+            Button("Manage module types", systemImage: "square.stack.3d.up") {
+                showingConfigLibrary = true
+            }
+        } label: {
+            Image(systemName: "plus")
+                .font(.headline.weight(.semibold))
+                .frame(width: 34, height: 34)
+                .background(RetroSmartTheme.accent.opacity(0.14))
+                .foregroundStyle(RetroSmartTheme.accentStrong)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+
     private var importAlertIsPresented: Binding<Bool> {
         Binding(
             get: { importAlertMessage != nil },
@@ -162,7 +163,7 @@ struct DevicesListView: View {
 
 private struct DeviceGridCard: View {
     @EnvironmentObject private var appModel: AppModel
-    @Environment(\.colorScheme) private var colorScheme
+
     let device: DeviceRecord
 
     private var loadedConfig: LoadedModuleConfig? {
@@ -182,11 +183,7 @@ private struct DeviceGridCard: View {
             return nil
         }
 
-        guard config.module.category == "sensor" else {
-            return nil
-        }
-
-        guard connectionState == .connected else {
+        guard config.module.category == "sensor", connectionState == .connected else {
             return nil
         }
 
@@ -195,128 +192,67 @@ private struct DeviceGridCard: View {
         }
 
         guard let source = widget.source, let value = liveState?.values[source] else {
-            return ReadingPreview(title: widget.label ?? "Reading", value: "Waiting", subtitle: nil)
+            return ReadingPreview(value: "Waiting")
         }
 
-        let valueText = value.stringValue + (widget.unit.map { " \($0)" } ?? "")
-        return ReadingPreview(
-            title: widget.label ?? "Reading",
-            value: valueText,
-            subtitle: nil
-        )
+        let valueText = formattedPreviewValue(for: widget, value: value)
+        return ReadingPreview(value: valueText)
     }
 
-    private var statusIconName: String? {
+    private var cardTone: RetroSmartSurfaceTone {
         switch connectionState {
         case .connected:
-            return nil
+            return previewReading == nil ? .neutral : .accent
         case .connecting:
-            return "arrow.triangle.2.circlepath"
+            return .warning
         case .disconnected:
-            return "wifi.slash"
+            return .neutral
         }
-    }
-
-    private var statusColor: Color {
-        switch connectionState {
-        case .connected:
-            return .clear
-        case .connecting:
-            return .orange
-        case .disconnected:
-            return .red
-        }
-    }
-
-    private var cardGradient: LinearGradient {
-        let accent = Color.accentColor
-        switch connectionState {
-        case .connected:
-            return LinearGradient(
-                colors: [accent.opacity(colorScheme == .dark ? 0.22 : 0.14), panelColor],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .connecting:
-            return LinearGradient(
-                colors: [Color.orange.opacity(colorScheme == .dark ? 0.18 : 0.12), panelColor],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .disconnected:
-            return LinearGradient(
-                colors: [panelColor, panelInsetColor],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-    }
-
-    private var panelColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0.07, green: 0.10, blue: 0.16)
-            : Color(red: 0.92, green: 0.95, blue: 0.99)
-    }
-
-    private var panelInsetColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0.12, green: 0.15, blue: 0.22)
-            : Color.white
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                Image(systemName: device.iconSystemName)
-                    .font(.title3)
-                    .frame(width: 38, height: 38)
-                    .background(panelInsetColor)
-                    .foregroundStyle(Color.accentColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 10) {
+                iconTile
 
-                Spacer(minLength: 8)
+                Spacer(minLength: 4)
 
                 if let previewReading {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(previewReading.value)
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(.primary)
+                            .font(.system(size: 22, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .fontDesign(.rounded)
                             .multilineTextAlignment(.trailing)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.75)
-                        Text(previewReading.title)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                             .lineLimit(1)
+                            .frame(width: 82, alignment: .trailing)
                     }
-                } else if let statusIconName {
-                    Label(connectionState == .connecting ? "Connecting" : "Offline", systemImage: statusIconName)
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(panelInsetColor)
-                        .foregroundStyle(statusColor)
-                        .clipShape(Capsule())
+                } else {
+                    StatusBadge(state: connectionState, style: .standard)
                 }
             }
 
             Spacer(minLength: 0)
 
-            Text(device.customName)
-                .font(.headline)
-                .lineLimit(2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(device.customName)
+                    .font(.headline)
+                    .fontDesign(.rounded)
+                    .lineLimit(2)
+            }
         }
-        .frame(maxWidth: .infinity, minHeight: 124, alignment: .topLeading)
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(cardGradient)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color.accentColor.opacity(colorScheme == .dark ? 0.14 : 0.10), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(colorScheme == .dark ? 0.22 : 0.06), radius: 18, y: 10)
+        .frame(maxWidth: .infinity, minHeight: 156, alignment: .topLeading)
+        .padding(16)
+        .retroSmartSurface(tone: cardTone)
+    }
+
+    private var iconTile: some View {
+        Image(systemName: device.iconSystemName)
+            .font(.title3.weight(.semibold))
+            .frame(width: 44, height: 44)
+            .background(RetroSmartTheme.accent.opacity(0.14))
+            .foregroundStyle(RetroSmartTheme.accentStrong)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func firstReadingWidget(in widgets: [WidgetConfig]) -> WidgetConfig? {
@@ -332,75 +268,53 @@ private struct DeviceGridCard: View {
 
         return nil
     }
+
+    private func formattedPreviewValue(for widget: WidgetConfig, value: JSONValue) -> String {
+        if widget.unit?.uppercased() == "C" {
+            if let numericValue = value.doubleValue {
+                return numericValue.formatted(.number.precision(.fractionLength(1))) + "°C"
+            }
+
+            return value.stringValue + "°C"
+        }
+
+        return value.stringValue + (widget.unit.map { " \($0)" } ?? "")
+    }
 }
 
 private struct DevicesOverviewCard: View {
-    @Environment(\.colorScheme) private var colorScheme
     let deviceCount: Int
     let connectedCount: Int
+    let typeCount: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("RetroSmart Home")
-                .font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text("RetroSmart Home")
+                    .font(.title2.weight(.semibold))
+                    .fontDesign(.rounded)
+
+                Spacer()
+
+                RetroSmartTag(title: "\(typeCount) types", tone: .subdued)
+            }
 
             HStack(spacing: 12) {
-                summaryValue(title: "Devices", value: "\(deviceCount)")
-                summaryValue(title: "Live", value: "\(connectedCount)")
+                RetroSmartMetricPill(title: "Devices", value: "\(deviceCount)")
+                RetroSmartMetricPill(
+                    title: "Live",
+                    value: "\(connectedCount)",
+                    tone: connectedCount == 0 ? .subdued : .success
+                )
             }
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.accentColor.opacity(colorScheme == .dark ? 0.24 : 0.16),
-                            panelColor,
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .stroke(Color.accentColor.opacity(colorScheme == .dark ? 0.18 : 0.12), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(colorScheme == .dark ? 0.24 : 0.06), radius: 20, y: 10)
-    }
-
-    private func summaryValue(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title.uppercased())
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.title3.weight(.semibold))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(panelInsetColor)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-
-    private var panelColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0.07, green: 0.10, blue: 0.16)
-            : Color(red: 0.92, green: 0.95, blue: 0.99)
-    }
-
-    private var panelInsetColor: Color {
-        colorScheme == .dark
-            ? Color(red: 0.12, green: 0.15, blue: 0.22)
-            : Color.white
+        .padding(22)
+        .retroSmartSurface(tone: .accent)
     }
 }
 
 private struct ReadingPreview {
-    let title: String
     let value: String
-    let subtitle: String?
 }
 
 private extension UTType {
