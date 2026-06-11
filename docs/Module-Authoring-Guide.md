@@ -1,14 +1,12 @@
 # Module Authoring Guide
 
-## Purpose
-
 This guide is for people adding or adapting RetroSmart module types.
 
 A module type in RetroSmart is made of three parts:
 
 1. firmware sketch
 2. YAML definition
-3. app compatibility with the declared widget/capability set
+3. app compatibility with the declared widget and capability set
 
 ## 1. Start With A Clear Module Contract
 
@@ -19,14 +17,13 @@ Before writing code, define:
 - what actions it accepts
 - what pin map it needs
 - what should appear on the device page
+- whether readings or actions should appear in automations
 
-If the module is simple and inspectable, the rest of the stack stays simple.
+If the module contract is simple and inspectable, the rest of the stack stays simple.
 
 ## 2. Create The Firmware Sketch
 
-Place new module firmware under:
-
-- [firmware/modules](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/modules)
+Place new module firmware under [firmware/modules](../firmware/modules).
 
 Follow the existing pattern:
 
@@ -39,15 +36,15 @@ Follow the existing pattern:
 
 Useful shared helpers:
 
-- [firmware/shared/RetroSmartBLEModule.h](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/shared/RetroSmartBLEModule.h)
-- [firmware/shared/AirQualityScore.h](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/shared/AirQualityScore.h)
-- [firmware/shared/RetroSmartOLEDStatusDisplay.h](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/shared/RetroSmartOLEDStatusDisplay.h)
+- [RetroSmartBLEModule.h](../firmware/shared/RetroSmartBLEModule.h)
+- [AirQualityScore.h](../firmware/shared/AirQualityScore.h)
+- [RetroSmartOLEDStatusDisplay.h](../firmware/shared/RetroSmartOLEDStatusDisplay.h)
+
+Use [retrosmart_module_template.ino](../firmware/templates/retrosmart_module_template.ino) as a starting point for a simple module.
 
 ## 3. Create The YAML Definition
 
-Built-in module YAML lives in:
-
-- [RetroSmart/RetroSmart/Resources/BuiltInConfigs](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/RetroSmart/RetroSmart/Resources/BuiltInConfigs)
+Built-in module YAML lives in [RetroSmart/Resources/BuiltInConfigs](../RetroSmart/RetroSmart/Resources/BuiltInConfigs).
 
 Current schema expects:
 
@@ -79,18 +76,38 @@ Do not assume the app supports arbitrary UI controls just because YAML is editab
 
 ## 5. Add Conditional UI Carefully
 
-The app now supports simple conditional visibility for widgets:
+The app supports simple conditional visibility for widgets:
 
 - `visible_when_source`
 - `visible_when_equals`
 
-Use this for practical state-dependent controls such as:
-
-- only show a display toggle when `display_present == true`
+Use this for practical state-dependent controls such as only showing a display toggle when `display_present == true`.
 
 Avoid complex multi-condition logic in YAML. That belongs in future schema work if needed.
 
-## 6. Respect The BLE Contract
+## 6. Declare Automation Compatibility
+
+The `automation` block controls which capabilities are exposed to the automation editor.
+
+Example:
+
+```yaml
+automation:
+  triggers: [temperature_c]
+  actions: [set_display_enabled]
+```
+
+Current app behavior:
+
+- sensor readings can be trigger sources
+- app time-of-day can also be a trigger source
+- actuator actions can be targets
+- sensor display toggles can be targets when declared
+- motor forward/reverse actions can be given a run duration in the app
+
+The app executes automations only while foregrounded.
+
+## 7. Respect The BLE Contract
 
 Action ids, reading ids, and status fields should stay:
 
@@ -109,9 +126,9 @@ Avoid:
 - overloaded generic names
 - changing ids casually after a module is already in use
 
-## 7. Keep Hardware Definitions Honest
+## 8. Keep Hardware Definitions Honest
 
-Document the real board assumptions in the YAML:
+Document the real board assumptions in YAML:
 
 - interfaces
 - pinout
@@ -119,21 +136,29 @@ Document the real board assumptions in the YAML:
 
 If a module needs a special bus split or a second I2C bus, put that in the config and firmware together.
 
-## 8. Current ESP32-S3 Zero Constraints
+## 9. ESP32-S3 Zero Constraints
 
 For this project profile:
 
-- stay inside `GPIO1-GPIO13` where possible
+- stay inside `GPIO1` through `GPIO13` where possible
 - avoid `GPIO0`
 - do not rely on onboard `GPIO21` RGB
-- `GPIO13` is the optional external status LED
+- use `GPIO13` only as an optional external status LED
 
-If your module cannot fit these constraints, either:
+If your module cannot fit these constraints, either define a new board profile or explicitly document the exception.
 
-- define a new board profile, or
-- explicitly document the exception
+## 10. Power And Safety Expectations
 
-## 9. Add App Support Only When Needed
+When adding actuator modules:
+
+- use external actuator power where required
+- share ground with the ESP32 board
+- stop active motion when BLE disconnects if the actuator can remain dangerous
+- avoid firmware keep-alive behavior that moves hardware unexpectedly
+
+Some USB power banks shut down with low-current ESP32 modules. Use a hardware dummy load or a low-current-friendly power source rather than forced firmware motion. See [Hardware Notes](./Hardware-Notes.md).
+
+## 11. Add App Support Only When Needed
 
 A new module should reuse the generic renderer by default.
 
@@ -143,9 +168,9 @@ Only extend app code if the module truly needs:
 - a special layout
 - unusual state formatting
 
-The current app already has pragmatic special cases for a few module-specific views. Treat those as exceptions, not the default module path.
+The current app has pragmatic special cases for a few module-specific views. Treat those as exceptions, not the default module path.
 
-## 10. Verification Checklist
+## 12. Verification Checklist
 
 Before calling a module done:
 
@@ -155,13 +180,14 @@ Before calling a module done:
 - device card preview looks right
 - device detail page renders cleanly
 - settings page reflects the module type correctly
+- automation eligibility matches the YAML
 - removal and re-onboarding still work
 
-## 11. When In Doubt
+## 13. When In Doubt
 
 Use an existing module as a template:
 
-- [temperature_ds18b20_v1.yaml](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/RetroSmart/RetroSmart/Resources/BuiltInConfigs/temperature_ds18b20_v1.yaml)
-- [air_quality_sgp40_v1.yaml](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/RetroSmart/RetroSmart/Resources/BuiltInConfigs/air_quality_sgp40_v1.yaml)
-- [temperature_ds18b20_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/modules/temperature_ds18b20_v1/temperature_ds18b20_v1.ino)
-- [air_quality_sgp40_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/modules/air_quality_sgp40_v1/air_quality_sgp40_v1.ino)
+- [temperature_ds18b20_v1.yaml](../RetroSmart/RetroSmart/Resources/BuiltInConfigs/temperature_ds18b20_v1.yaml)
+- [air_quality_sgp40_v1.yaml](../RetroSmart/RetroSmart/Resources/BuiltInConfigs/air_quality_sgp40_v1.yaml)
+- [temperature_ds18b20_v1.ino](../firmware/modules/temperature_ds18b20_v1/temperature_ds18b20_v1.ino)
+- [air_quality_sgp40_v1.ino](../firmware/modules/air_quality_sgp40_v1/air_quality_sgp40_v1.ino)

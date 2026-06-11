@@ -1,14 +1,12 @@
 # System Architecture
 
-## Overview
-
 RetroSmart has three main definition layers:
 
 1. persisted app/device data
 2. YAML module definitions
 3. firmware BLE implementation
 
-The app is configuration-driven, but not unconstrained. It uses a small set of widget primitives and a fixed BLE contract.
+The app is configuration-driven, but deliberately bounded. It uses a small set of widget primitives, a fixed BLE contract, and foreground-only automation execution.
 
 ## Main Components
 
@@ -17,36 +15,41 @@ The app is configuration-driven, but not unconstrained. It uses a small set of w
 - SwiftUI for navigation and UI
 - SwiftData for persistence
 - CoreBluetooth for BLE discovery and control
+- lightweight local automation engine
 
 ### Firmware
 
 - Arduino-based ESP32 module sketches
 - shared BLE helper for the RetroSmart JSON contract
 - per-module logic for sensors and actuators
+- optional SSD1306 OLED helper for sensor modules
 
 ### Config layer
 
 - YAML module definitions bundled into the app
 - imported YAML can replace built-in definitions by matching `type_id`
+- configs describe UI widgets, readings, actions, automation compatibility, pinout, and required libraries
 
 ## App Structure
 
-- [RetroSmart/App](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/RetroSmart/RetroSmart/App)
+- [RetroSmart/App](../RetroSmart/RetroSmart/App)
   app entry point and shared model
-- [RetroSmart/Models](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/RetroSmart/RetroSmart/Models)
+- [RetroSmart/Models](../RetroSmart/RetroSmart/Models)
   persistence and BLE/config schema models
-- [RetroSmart/Services](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/RetroSmart/RetroSmart/Services)
+- [RetroSmart/Services](../RetroSmart/RetroSmart/Services)
   config registry, BLE manager, automation engine
-- [RetroSmart/Views](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/RetroSmart/RetroSmart/Views)
+- [RetroSmart/Views](../RetroSmart/RetroSmart/Views)
   app UI and device flows
+- [RetroSmart/Resources/BuiltInConfigs](../RetroSmart/RetroSmart/Resources/BuiltInConfigs)
+  bundled module YAML definitions
 
 ## Runtime Flow
 
 1. SwiftData loads known devices, imported configs, and automation rules.
 2. `ModuleConfigRegistry` loads built-in YAML and overlays imported YAML by `type_id`.
 3. `RetroSmartBLEManager` scans for peripherals, resolves identity, subscribes to state, and writes commands.
-4. Device pages render widget primitives from the module config.
-5. `AutomationEngine` evaluates simple foreground-only trigger/action rules.
+4. Device pages render widget primitives from the selected module config.
+5. `AutomationEngine` evaluates foreground-only trigger/action rules and can execute a saved rule manually from the list.
 
 ## BLE Contract
 
@@ -76,6 +79,8 @@ Used by the app to understand:
 - action ids
 - reading ids
 
+The YAML config still owns labels, payload types, UI widgets, and automation eligibility.
+
 ### State payload
 
 Carries:
@@ -103,6 +108,30 @@ Example:
 }
 ```
 
+## Automation Model
+
+Automations are local app rules. They are persisted with SwiftData and evaluated only while the app is foregrounded.
+
+Supported trigger modes:
+
+- device reading above threshold
+- device reading below threshold
+- device reading equals value or category
+- time of day while the app is open
+
+Supported action targets:
+
+- actuator actions declared in module YAML
+- sensor display toggle actions declared in module YAML
+
+Special app-side behavior:
+
+- motor forward/reverse automation actions can store a run duration
+- the app sends `motor_stop` after that duration if it is still active and connected
+- tapping the play button on a saved automation manually executes the action path
+
+This is not a background scheduling system. Time triggers do not run after iOS suspends the app.
+
 ## YAML Responsibility Split
 
 YAML definitions tell the app:
@@ -110,6 +139,7 @@ YAML definitions tell the app:
 - how to label the module
 - which widgets to render
 - which actions and readings exist
+- which actions and readings participate in automations
 - which pin map is expected
 - which Arduino libraries are needed
 
@@ -119,8 +149,9 @@ Firmware still owns:
 - pin initialization
 - state publication
 - command handling
+- safety behavior such as stopping motors when disconnected
 
-## Current Weakest Scaling Point
+## Current Scaling Point
 
 The first serious scaling pressure is BLE concurrency on iOS, not storage or rendering.
 
@@ -140,7 +171,7 @@ The project deliberately favors:
 - explicit module behavior over plugin magic
 - practical extension over framework cleverness
 
-That means some things are intentionally narrow:
+Some things are intentionally narrow:
 
 - YAML parsing
 - widget types

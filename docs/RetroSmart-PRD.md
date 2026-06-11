@@ -4,13 +4,13 @@
 
 - Product: RetroSmart iPhone app + ESP32 device ecosystem
 - Original version: v1.0
-- Current version: v1.1 prototype-aligned
-- Status: Working prototype baseline
+- Current version: v1.2 repo-readiness
+- Status: Working prototype and open-source baseline
 - Original author: Tong Zhang
 - Original date: 31 March 2026
-- Updated date: 1 April 2026
+- Updated date: 11 June 2026
 
-This Markdown file is the persisted project PRD for the current prototype. It is based on the original draft and updated to reflect implementation decisions made during the first working build.
+This Markdown file is the persisted project PRD for the current prototype. It is based on the original draft and updated to reflect implementation decisions in the app, bundled YAML configs, and ESP32 firmware sketches.
 
 ## 2. Product overview
 
@@ -29,7 +29,7 @@ The app is the user-facing control layer for:
 - adding them to a persistent home setup
 - controlling them individually
 - rendering device pages from config
-- creating simple cross-device automations
+- creating simple cross-device and foreground time-based automations
 
 This phase establishes:
 
@@ -72,7 +72,7 @@ Create a modular, extensible retrofit ecosystem where dedicated ESP32 modules id
   - importable into the app
   - expressive enough to describe UI, capabilities, and pinout
   - translatable into ESP32 Arduino firmware templates
-- Support simple foreground-only "if this then that" automations using available readings and actions.
+- Support simple foreground-only "if this then that" automations using available readings, time-of-day triggers, and module actions.
 
 ### 5.2 Secondary goals
 
@@ -86,8 +86,8 @@ Create a modular, extensible retrofit ecosystem where dedicated ESP32 modules id
 - Cloud sync
 - Remote access outside local BLE range
 - Multi-user household accounts
-- Background automation execution
-- Advanced automation logic such as nested conditions, timers, scenes, variables, or scripting
+- Background automation execution, including reliable execution while the app is closed
+- Advanced automation logic such as nested conditions, scenes, variables, scripting, or recurring schedules beyond a single foreground time-of-day trigger
 - Full AI-based adaptor generation or code generation implementation
 - OTA firmware update system
 - Android app
@@ -127,7 +127,7 @@ The current phase includes:
 - per-device detail page
 - per-device settings page
 - configuration import from Files app and pasted YAML
-- simple automation builder
+- simple automation builder with reading and time-of-day triggers
 - module type definitions for 4 initial modules
 - a config schema that drives both app behavior and firmware templates
 
@@ -199,9 +199,11 @@ The settings page allows the user to:
 
 ### 10.6 Automations tab
 
-The Automations tab allows users to create simple rules in the format:
+The Automations tab allows users to create and manually run simple rules in the format:
 
-`If [reading / event / state] then [action].`
+`If [reading condition / time of day] then [action].`
+
+Each rule row should summarize the reading or time trigger, the condition value where applicable, the target action, and any action value such as servo angle, display state, or motor run duration.
 
 ### 10.7 RetroSmart AI tab
 
@@ -277,22 +279,25 @@ No functional implementation is required beyond placeholder content.
 
 - FR-36 Automation list: the Automations tab displays existing rules and a way to create new ones.
 - FR-37 Rule structure:
-  - trigger device
-  - trigger reading or state
-  - operator and comparison value if needed
+  - trigger mode: device reading or time of day
+  - trigger device and reading when using a device trigger
+  - operator and comparison value when using a device trigger
+  - local time value when using a time trigger
   - target device
   - target action and payload
-- FR-38 Supported trigger sources: triggers may come from readings or state changes.
-- FR-39 Supported action targets: actions may target actuator-capable devices.
+- FR-38 Supported trigger sources: triggers may come from configured readings or a foreground time-of-day check.
+- FR-39 Supported action targets: actions may target actuator-capable devices or module actions such as display on/off when exposed by config.
 - FR-40 Simple condition model: only single-condition single-action rules are supported.
 - FR-41 Enable or disable rules: each automation must be toggleable.
 - FR-42 Local execution: automations run only while the app is active in the foreground.
 - FR-43 Device removal cleanup: removing a device also removes automations that reference it.
+- FR-44 Manual execution: users can press the action control on a rule row to execute that automation immediately.
+- FR-45 Timed motor safety: automation-created DC motor run actions must include a positive run duration so the app can send a stop command after the requested time.
 
 ### 11.8 RetroSmart AI placeholder
 
-- FR-44 Placeholder page: the RetroSmart AI tab must exist and present future-facing modules.
-- FR-45 No active generation required: no backend or AI generation flow is required in this phase.
+- FR-46 Placeholder page: the RetroSmart AI tab must exist and present future-facing modules.
+- FR-47 No active generation required: no backend or AI generation flow is required in this phase.
 
 ## 12. Initial supported module types
 
@@ -307,6 +312,7 @@ The first release includes the following module types.
   - hold `Forward` to actuate one direction
   - hold `Reverse` to actuate the other direction
   - release stops actuation
+  - automation actions require a run duration in seconds and then send `motor_stop`
   - fixed speed
   - stops if the BLE connection drops while running
 
@@ -328,7 +334,9 @@ The first release includes the following module types.
   - current temperature display
   - OLED display toggle when a connected module reports an attached SSD1306 display
 - Behavior:
-  - reads and publishes every 1 second
+  - reads approximately every 2 seconds
+  - notifies on connection and on meaningful reading or display state changes
+  - display on/off is exposed as an automatable action when the module reports a display
   - optional 96x16 SSD1306 OLED on a separate I2C bus shows thermometer icon plus temperature in one line
 
 ### 12.4 Air quality module
@@ -341,7 +349,9 @@ The first release includes the following module types.
   - category label
   - OLED display toggle when a connected module reports an attached SSD1306 display
 - Behavior:
-  - reads and publishes every 1 second
+  - reads approximately every 2 seconds
+  - notifies on connection and on meaningful reading, category, or display state changes
+  - display on/off is exposed as an automatable action when the module reports a display
   - uses fixed 25 C / 50% RH compensation defaults in firmware
   - optional 96x16 SSD1306 OLED on a separate I2C bus shows cloud icon plus Good/Poor score in one line
 
@@ -406,7 +416,7 @@ Characteristics:
 
 - Identity: read on connect
 - Capabilities: read on connect or after type/config change
-- State/readings: notify once per second for sensors; notify on state change for actuators when useful
+- State/readings: notify on connect and on meaningful state changes; current sensor sketches check readings approximately every 2 seconds
 - Command: JSON writes
 
 The app should rely primarily on notify updates rather than continuous polling.
@@ -420,7 +430,7 @@ At minimum:
   "device_id": "RS-DCM-001A92",
   "device_type": "dc_motor_drv8833_v1",
   "model": "DC Motor Module",
-  "fw_version": "0.1.0"
+  "fw_version": "0.2.1"
 }
 ```
 
@@ -432,7 +442,7 @@ At minimum:
 - reading below threshold
 - reading equals value
 - reading equals category
-- device connected or disconnected is optional and secondary
+- foreground time of day
 
 ### 15.2 Supported action types in v1
 
@@ -440,44 +450,46 @@ At minimum:
 - run motor reverse
 - stop motor
 - set servo angle
+- set display enabled or disabled for modules that expose `set_display_enabled`
 
 ### 15.3 Limitations
 
 - only one trigger per rule
 - only one action per rule
 - no AND or OR conditions
-- no scheduling layer
+- time-of-day triggers are checked only while the app is active
 - no history engine
 - no background execution
+- DC motor run actions depend on the app staying active long enough to send the scheduled stop command
 
 ## 16. Information architecture
 
 ### 16.1 Devices flow
 
-Devices tab  
-→ tap plus  
-→ add nearby device or import config  
-→ select device  
-→ confirm type, name, and icon  
-→ save  
+Devices tab
+→ tap plus
+→ add nearby device or import config
+→ select device
+→ confirm type, name, and icon
+→ save
 → device appears persistently in the grid
 
 ### 16.2 Device flow
 
-Devices tab  
-→ tap device card  
-→ device page  
-→ tap settings  
+Devices tab
+→ tap device card
+→ device page
+→ tap settings
 → edit metadata, type, inspect config, or remove device
 
 ### 16.3 Automation flow
 
-Automations tab  
-→ add automation  
-→ select trigger device  
-→ select trigger reading and condition  
-→ select target device  
-→ select target action  
+Automations tab
+→ add automation
+→ choose device reading or time-of-day trigger
+→ select trigger device, reading, and condition when needed
+→ select target device
+→ select target action and value when needed
 → save rule
 
 ### 16.4 Config import flow
@@ -622,6 +634,8 @@ Users may assign any device any type. The app should:
 
 Automations execute only while the app is foregrounded. This must be communicated clearly.
 
+Time-of-day triggers and scheduled motor stop commands share this dependency. A future hardware or hub executor would be needed for reliable unattended operation.
+
 ### 21.5 Configuration compatibility
 
 Imported configs may describe unsupported widgets or capabilities. Versioning and validation remain necessary.
@@ -645,6 +659,9 @@ This phase is successful if:
 - settings allow name, icon, and type edits plus config inspection
 - YAML config files can be imported and validated
 - at least one simple automation can be created between a sensor module and an actuator module
+- a time-of-day automation can be created and executed while the app is active
+- a display-enabled module can expose display on/off as an automation action
+- DC motor automation actions require a run duration and send a stop command after that duration
 - the prototype works within the ESP32-S3 Zero pin constraints documented here
 
 ## 23. MVP definition
@@ -661,7 +678,8 @@ The MVP for this phase includes:
 - device settings page with config visibility and device removal
 - YAML-based module definitions
 - import flow for configs from Files app and raw YAML paste
-- simple single-trigger single-action automations running in foreground only
+- simple single-trigger single-action automations running in foreground only, including reading and time-of-day triggers
+- manual automation execution from the automation list
 - RetroSmart AI placeholder page
 - ESP32 Arduino firmware templates and initial module sketches
 - ESP32-S3 Zero-compatible built-in pin maps

@@ -2,9 +2,7 @@
 
 This directory contains the iPhone app for RetroSmart.
 
-RetroSmart as a whole is framed in the root [README.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/README.md). This file is the app-focused companion document.
-
-The persisted product requirements document lives at [docs/RetroSmart-PRD.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs/RetroSmart-PRD.md).
+The project-level overview lives in the root [README](../README.md). Product behavior and prototype scope are tracked in the [PRD](../docs/RetroSmart-PRD.md).
 
 ## App Scope
 
@@ -19,28 +17,30 @@ The persisted product requirements document lives at [docs/RetroSmart-PRD.md](/U
 - BLE manager using a fixed RetroSmart JSON-over-BLE contract
 - Lightweight config-driven device page renderer
 - Foreground-only automation engine
+- Manual automation execution from the automation list
+- Time-of-day automation triggers while the app is foregrounded
 - Shared Arduino BLE scaffolding and firmware sketches for the built-in module types
 
 ## App Architecture
 
-- `RetroSmart/App`
-  - app entry point and the shared app model
-- `RetroSmart/Models`
-  - SwiftData entities and typed config/BLE schema models
-- `RetroSmart/Services`
-  - YAML registry, BLE manager, and automation engine
-- `RetroSmart/Views`
-  - tabs, onboarding/import flows, dynamic device pages, settings, and automation editor
-- `RetroSmart/Resources/BuiltInConfigs`
-  - built-in YAML module definitions bundled into the app
+- [RetroSmart/App](./RetroSmart/App)
+  app entry point and shared app model
+- [RetroSmart/Models](./RetroSmart/Models)
+  SwiftData entities and typed config/BLE schema models
+- [RetroSmart/Services](./RetroSmart/Services)
+  YAML registry, BLE manager, and automation engine
+- [RetroSmart/Views](./RetroSmart/Views)
+  tabs, onboarding/import flows, dynamic device pages, settings, and automation editor
+- [RetroSmart/Resources/BuiltInConfigs](./RetroSmart/Resources/BuiltInConfigs)
+  built-in YAML module definitions bundled into the app
 
-The app uses a simple runtime flow:
+Runtime flow:
 
 1. SwiftData stores devices, imported configs, and automation rules.
 2. `ModuleConfigRegistry` loads built-in YAML plus imported YAML and replaces definitions globally by `type_id`.
 3. `RetroSmartBLEManager` scans for known peripherals, reads identity/capability/state JSON, and writes command JSON.
 4. Device detail pages render widget primitives from YAML.
-5. `AutomationEngine` evaluates simple rules only while the app is foregrounded.
+5. `AutomationEngine` evaluates simple foreground-only rules and can execute a saved rule manually from the list.
 
 ## BLE Contract
 
@@ -59,7 +59,7 @@ RetroSmart v1 uses UTF-8 JSON strings over BLE characteristics.
   "device_id": "RS-DCM-001A92",
   "device_type": "dc_motor_drv8833_v1",
   "model": "DC Motor Module",
-  "fw_version": "0.1.0"
+  "fw_version": "0.2.1"
 }
 ```
 
@@ -74,7 +74,7 @@ State payloads use a stable envelope:
     "servo_angle": 45
   },
   "status": {
-    "connection_hint": "connected"
+    "connected": true
   }
 }
 ```
@@ -86,6 +86,17 @@ State payloads use a stable envelope:
   "action": "set_servo_angle",
   "payload": {
     "value": 90
+  }
+}
+```
+
+Boolean display commands use the same envelope:
+
+```json
+{
+  "action": "set_display_enabled",
+  "payload": {
+    "value": true
   }
 }
 ```
@@ -107,7 +118,7 @@ Imported YAML is validated on-device. If a new import uses an existing `type_id`
 
 ## Running The App
 
-1. Open [RetroSmart.xcodeproj](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/RetroSmart/RetroSmart.xcodeproj) in Xcode.
+1. Open [RetroSmart.xcodeproj](./RetroSmart.xcodeproj) in Xcode.
 2. Select an iOS 17+ simulator or device.
 3. Build and run the `RetroSmart` target.
 4. Use the `Devices` tab to:
@@ -115,38 +126,47 @@ Imported YAML is validated on-device. If a new import uses an existing `type_id`
    - import a YAML file from Files
    - paste raw YAML
 
+For a smoother phone demo, edit the run scheme to use `Release` and uncheck `Debug executable`, or create an Xcode archive and install a development distribution build.
+
 ## Firmware Entry Points
 
-Firmware lives under [firmware](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware).
+Firmware lives under [firmware](../firmware).
 
-1. Open the module sketch you want:
-   - [dc_motor_drv8833_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/modules/dc_motor_drv8833_v1/dc_motor_drv8833_v1.ino)
-   - [servo_180_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/modules/servo_180_v1/servo_180_v1.ino)
-   - [temperature_ds18b20_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/modules/temperature_ds18b20_v1/temperature_ds18b20_v1.ino)
-   - [air_quality_sgp40_v1.ino](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/firmware/modules/air_quality_sgp40_v1/air_quality_sgp40_v1.ino)
-2. Install the libraries listed in each YAML config and sketch comments.
-3. For `ESP32-S3 Zero`, enable native USB serial in Arduino before flashing:
-   - board: your ESP32-S3 target or ESP32-S3 Zero profile
-   - `USB CDC On Boot`: `Enabled`
-4. The built-in RetroSmart pin maps for `ESP32-S3 Zero` stay within `GPIO1-GPIO13`:
-   - DC motor: `GPIO7` PWM, `GPIO8` IN1, `GPIO9` IN2, optional status LED `GPIO13`
-   - Servo: `GPIO7` signal, optional status LED `GPIO13`
-   - Temperature: `GPIO6` OneWire, `GPIO7` OLED SDA, `GPIO8` OLED SCL, optional status LED `GPIO13`
-   - Air quality: `GPIO5` SDA, `GPIO6` SCL, `GPIO7` OLED SDA, `GPIO8` OLED SCL, optional status LED `GPIO13`
-5. The board's onboard WS2812 on `GPIO21` is intentionally unused in this profile so all required wiring stays on the easy-access pins. `GPIO0` is also left alone because it is the BOOT pin.
-6. Flash the sketch to the matching ESP32 module. If the board does not auto-enter download mode, hold `BOOT` while connecting or resetting it.
-7. Open the serial monitor at `115200`, then power the module and onboard it from the app.
+Open the module sketch you want:
+
+- [dc_motor_drv8833_v1.ino](../firmware/modules/dc_motor_drv8833_v1/dc_motor_drv8833_v1.ino)
+- [servo_180_v1.ino](../firmware/modules/servo_180_v1/servo_180_v1.ino)
+- [temperature_ds18b20_v1.ino](../firmware/modules/temperature_ds18b20_v1/temperature_ds18b20_v1.ino)
+- [air_quality_sgp40_v1.ino](../firmware/modules/air_quality_sgp40_v1/air_quality_sgp40_v1.ino)
+
+For `ESP32-S3 Zero`, enable native USB serial in Arduino before flashing:
+
+- board: your ESP32-S3 target or ESP32-S3 Zero profile
+- `USB CDC On Boot`: `Enabled`
+
+The built-in RetroSmart pin maps for `ESP32-S3 Zero` stay within `GPIO1` through `GPIO13`:
+
+- DC motor: `GPIO7` PWM, `GPIO8` IN1, `GPIO9` IN2, optional status LED `GPIO13`
+- Servo: `GPIO7` signal, optional status LED `GPIO13`
+- Temperature: `GPIO6` OneWire, `GPIO7` OLED SDA, `GPIO8` OLED SCL, optional status LED `GPIO13`
+- Air quality: `GPIO5` SDA, `GPIO6` SCL, `GPIO7` OLED SDA, `GPIO8` OLED SCL, optional status LED `GPIO13`
+
+The board's onboard WS2812 on `GPIO21` is intentionally unused in this profile so all required wiring stays on the easy-access pins. `GPIO0` is also left alone because it is the BOOT pin.
 
 ## Related Docs
 
-- [docs/Getting-Started.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs/Getting-Started.md)
-- [docs/System-Architecture.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs/System-Architecture.md)
-- [docs/Module-Authoring-Guide.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs/Module-Authoring-Guide.md)
-- [docs/Contributing-Guide.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs/Contributing-Guide.md)
+- [Getting Started](../docs/Getting-Started.md)
+- [System Architecture](../docs/System-Architecture.md)
+- [Module Authoring Guide](../docs/Module-Authoring-Guide.md)
+- [Compatibility Matrix](../docs/Compatibility-Matrix.md)
+- [Hardware Notes](../docs/Hardware-Notes.md)
+- [Validation Checklist](../docs/Validation-Checklist.md)
+- [Contributing Guide](../docs/Contributing-Guide.md)
 
 ## Current Limitations
 
 - Automations run only while the app is foregrounded.
+- Time triggers are app-foreground checks, not background schedules.
 - The YAML parser is a deliberately small subset parser aimed at the v1 schema, not a full YAML implementation.
 - BLE reconnection favors known peripheral identifiers and the device identity payload; this is appropriate for prototyping but not a production pairing system.
 - The app keeps the dynamic renderer intentionally lightweight and only supports the first widget set in the PRD.

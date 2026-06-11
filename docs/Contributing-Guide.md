@@ -1,21 +1,14 @@
 # Contributing Guide
 
-## Purpose
-
 RetroSmart is meant to be adapted by others, but contribution quality matters because the project is configuration-driven and cross-layer changes can drift quickly.
 
 This guide sets the baseline for changes.
 
 ## 1. Source Of Truth
 
-For product behavior and prototype intent, use:
+For product behavior and prototype intent, use [RetroSmart-PRD.md](./RetroSmart-PRD.md).
 
-- [docs/RetroSmart-PRD.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs/RetroSmart-PRD.md)
-
-If implementation and docs disagree, either:
-
-- update the code to match the PRD, or
-- update the PRD deliberately to reflect a justified implementation decision
+If implementation and docs disagree, either update the code to match the PRD or update the PRD deliberately to reflect a justified implementation decision.
 
 ## 2. Preferred Change Style
 
@@ -25,12 +18,14 @@ Prefer:
 - directness over abstraction
 - explicit ids and config fields
 - lightweight patterns that fit the existing codebase
+- docs updates in the same change set as behavior changes
 
 Avoid:
 
 - speculative rewrites
 - generic frameworks for future possibilities
 - config features that the app does not actually support
+- silently changing BLE ids, action ids, or reading ids
 
 ## 3. Hardware And Firmware Expectations
 
@@ -40,21 +35,24 @@ When changing firmware:
 - keep reading/action ids stable where possible
 - document pin-map changes
 - note library additions
+- preserve safety behavior for actuators
 
 When changing hardware assumptions:
 
-- update README
-- update docs
+- update [README.md](../README.md)
+- update [Hardware Notes](./Hardware-Notes.md)
+- update [Compatibility Matrix](./Compatibility-Matrix.md)
 - update the PRD if the change is now part of the prototype baseline
 
 ## 4. App Expectations
 
 When changing the app:
 
-- avoid hiding important behavior behind clever abstractions
 - preserve inspectability of device types and config
-- keep device flows understandable to a non-expert user
+- keep device flows understandable to non-expert users
 - prefer fixes that improve correctness and reliability first
+- keep automation behavior honest about foreground-only execution
+- keep UI language compact and operational
 
 ## 5. BLE Expectations
 
@@ -75,25 +73,19 @@ The YAML parser is a limited schema parser, not a full YAML engine.
 That means:
 
 - keep examples and built-in configs simple
-- do not depend on advanced YAML features unless the parser is extended intentionally
+- avoid advanced YAML features unless the parser is extended intentionally
+- keep `capabilities` and `automation` aligned with firmware behavior
 
 ## 7. Documentation Expectations
 
-If a change affects:
-
-- module behavior
-- wiring
-- configuration shape
-- app flows
-- BLE contract
-
-then update the docs in the same change set.
+If a change affects module behavior, wiring, configuration shape, app flows, or BLE contract, update docs in the same change set.
 
 Minimum targets:
 
-- [README.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/README.md)
-- [docs/RetroSmart-PRD.md](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs/RetroSmart-PRD.md)
-- any relevant guide in [docs](/Users/tong/Library/CloudStorage/OneDrive-Personal/Desktop/Solo%20Y/RetroSmart/docs)
+- [README.md](../README.md)
+- [RetroSmart-PRD.md](./RetroSmart-PRD.md)
+- [Compatibility Matrix](./Compatibility-Matrix.md)
+- any relevant guide in [docs](./)
 
 ## 8. Recommended Verification
 
@@ -107,21 +99,36 @@ For firmware changes:
 - compile or flash if possible
 - verify the module still publishes the expected readings and actions
 
-## 9. Good First Contribution Areas
+For docs-only changes:
+
+- check links are relative and portable
+- check examples match current YAML and firmware
+- search for local absolute paths before committing
+
+## 9. Pre-Commit Checklist
+
+- `git status --short` shows only intended files
+- iOS build passes when app code changed
+- firmware compile status is stated when firmware changed
+- docs mention any new limitations or safety notes
+- no local machine paths appear in Markdown links
+
+## 10. Good First Contribution Areas
 
 - new module definitions
 - doc improvements
 - BLE robustness fixes
 - device-page UX cleanup
 - clearer settings/config inspection
+- compatibility matrix updates
 
-## 10. Open Areas That Still Need Structure
+## 11. Open Areas That Still Need Structure
 
 The repo is open and reusable now, but a few public-project conventions are still light:
 
-- no dedicated hardware release pack
+- no dedicated hardware CAD/BOM release pack
 - no formal issue templates
 - no contributor workflow automation
-- no explicit compatibility matrix yet
+- no automated firmware build matrix
 
 Those are good follow-up improvements if the project starts taking outside contributions.
