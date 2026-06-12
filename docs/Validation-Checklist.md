@@ -70,11 +70,8 @@ Before committing public-facing changes:
 
 - all Markdown links are relative unless they intentionally point to an external site
 - root README reflects current module set
+- root `CONTRIBUTING.md`, `SUPPORT.md`, and `SECURITY.md` reflect current project maturity
 - PRD reflects implemented automation behavior
 - compatibility matrix reflects firmware libraries and pin maps
 - hardware notes reflect any wiring or power changes
 - no local absolute paths such as `/Users/...` appear in Markdown
-
-## Known External Inputs
-
-Some delivery artifacts may live outside the repository. If a validation briefing, slide deck, or external design reference is required, attach it to the repo or provide a node-specific Figma URL so it can be checked directly.

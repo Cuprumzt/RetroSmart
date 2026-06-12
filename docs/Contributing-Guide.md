@@ -86,6 +86,7 @@ Minimum targets:
 - [RetroSmart-PRD.md](./RetroSmart-PRD.md)
 - [Compatibility Matrix](./Compatibility-Matrix.md)
 - any relevant guide in [docs](./)
+- root community files if contribution, support, or security expectations change
 
 ## 8. Recommended Verification
 
@@ -127,7 +128,6 @@ For docs-only changes:
 The repo is open and reusable now, but a few public-project conventions are still light:
 
 - no dedicated hardware CAD/BOM release pack
-- no formal issue templates
 - no contributor workflow automation
 - no automated firmware build matrix
 

@@ -123,6 +123,12 @@ Start here:
 - [Contributing Guide](./docs/Contributing-Guide.md)
 - [Product Requirements](./docs/RetroSmart-PRD.md)
 
+## Community And Safety
+
+- [Contributing](./CONTRIBUTING.md)
+- [Support](./SUPPORT.md)
+- [Security Policy](./SECURITY.md)
+
 ## Useful Commands
 
 Build the iOS app for simulator:
