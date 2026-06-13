@@ -15,6 +15,7 @@ struct NearbyResolvedDevice {
 
 private struct KnownDeviceDescriptor {
     let deviceID: String
+    let reportedDeviceID: String
     let peripheralIdentifier: UUID?
 }
 
@@ -62,13 +63,27 @@ final class RetroSmartBLEManager: NSObject, ObservableObject {
     func syncKnownDevices(_ devices: [DeviceRecord]) {
         knownDevices = Dictionary(uniqueKeysWithValues: devices.map {
             let uuid = $0.peripheralIdentifier.flatMap(UUID.init(uuidString:))
-            return ($0.deviceID, KnownDeviceDescriptor(deviceID: $0.deviceID, peripheralIdentifier: uuid))
+            return (
+                $0.deviceID,
+                KnownDeviceDescriptor(
+                    deviceID: $0.deviceID,
+                    reportedDeviceID: $0.firmwareReportedDeviceID,
+                    peripheralIdentifier: uuid
+                )
+            )
         })
 
         let validDeviceIDs = Set(devices.map(\.deviceID))
         connectionStates = Dictionary(uniqueKeysWithValues: devices.map { device in
             let peripheralID = device.peripheralIdentifier.flatMap(UUID.init(uuidString:))
-            return (device.deviceID, resolvedConnectionState(for: peripheralID, deviceID: device.deviceID))
+            return (
+                device.deviceID,
+                resolvedConnectionState(
+                    for: peripheralID,
+                    deviceID: device.deviceID,
+                    reportedDeviceID: device.firmwareReportedDeviceID
+                )
+            )
         })
         liveStates = liveStates.filter { validDeviceIDs.contains($0.key) }
         if debugMessages.count > 120 {
@@ -113,8 +128,24 @@ final class RetroSmartBLEManager: NSObject, ObservableObject {
         }
     }
 
-    func markDeviceAdded(deviceID: String, peripheralIdentifier: UUID?) {
-        knownDevices[deviceID] = KnownDeviceDescriptor(deviceID: deviceID, peripheralIdentifier: peripheralIdentifier)
+    func markDeviceAdded(deviceID: String, reportedDeviceID: String, peripheralIdentifier: UUID?) {
+        let preSaveDeviceID = peripheralIdentifier.map {
+            self.deviceID(for: $0, reportedDeviceID: reportedDeviceID)
+        }
+
+        knownDevices[deviceID] = KnownDeviceDescriptor(
+            deviceID: deviceID,
+            reportedDeviceID: reportedDeviceID,
+            peripheralIdentifier: peripheralIdentifier
+        )
+        if let preSaveDeviceID, preSaveDeviceID != deviceID {
+            if liveStates[deviceID] == nil, let preSaveState = liveStates[preSaveDeviceID] {
+                liveStates[deviceID] = preSaveState
+            }
+            if connectionStates[deviceID] == nil, let preSaveState = connectionStates[preSaveDeviceID] {
+                connectionStates[deviceID] = preSaveState
+            }
+        }
         if let peripheralIdentifier {
             autoConnectInFlight.remove(peripheralIdentifier)
         }
@@ -132,7 +163,7 @@ final class RetroSmartBLEManager: NSObject, ObservableObject {
 
     func sendCommand(to deviceID: String, actionID: String, payload: [String: JSONValue]) {
         guard
-            let peripheralID = peripheralContexts.first(where: { $0.value.identityPayload?.deviceID == deviceID })?.key,
+            let peripheralID = peripheralIdentifier(for: deviceID),
             let context = peripheralContexts[peripheralID],
             let characteristic = context.commandCharacteristic
         else {
@@ -223,9 +254,47 @@ final class RetroSmartBLEManager: NSObject, ObservableObject {
         }
     }
 
+    private func deviceID(for peripheralID: UUID, reportedDeviceID: String) -> String {
+        if let knownDevice = knownDevices.values.first(where: { $0.peripheralIdentifier == peripheralID }) {
+            return knownDevice.deviceID
+        }
+
+        if let knownDevice = knownDevices.values.first(where: {
+            $0.peripheralIdentifier == nil && $0.reportedDeviceID == reportedDeviceID
+        }) {
+            return knownDevice.deviceID
+        }
+
+        if knownDevices.values.contains(where: {
+            $0.reportedDeviceID == reportedDeviceID && $0.peripheralIdentifier != peripheralID
+        }) {
+            return peripheralScopedDeviceID(reportedDeviceID: reportedDeviceID, peripheralID: peripheralID)
+        }
+
+        return reportedDeviceID
+    }
+
+    private func peripheralScopedDeviceID(reportedDeviceID: String, peripheralID: UUID) -> String {
+        let peripheralIDString = peripheralID.uuidString
+        return "\(reportedDeviceID)-\(String(peripheralIDString.prefix(8)))"
+    }
+
+    private func peripheralIdentifier(for deviceID: String) -> UUID? {
+        if let peripheralID = knownDevices[deviceID]?.peripheralIdentifier {
+            return peripheralID
+        }
+
+        return peripheralContexts.first(where: { entry in
+            guard let reportedDeviceID = entry.value.identityPayload?.deviceID else {
+                return false
+            }
+
+            return self.deviceID(for: entry.key, reportedDeviceID: reportedDeviceID) == deviceID
+        })?.key
+    }
+
     private func updateNearbyList() {
         let knownPeripheralIDs = Set(knownDevices.values.compactMap(\.peripheralIdentifier))
-        let knownDeviceIDs = Set(knownDevices.keys)
 
         nearbyPeripherals = peripheralContexts.values
             .filter { context in
@@ -233,7 +302,10 @@ final class RetroSmartBLEManager: NSObject, ObservableObject {
                     return false
                 }
 
-                if let deviceID = context.identityPayload?.deviceID, knownDeviceIDs.contains(deviceID) {
+                if let reportedDeviceID = context.identityPayload?.deviceID,
+                   knownDevices.values.contains(where: {
+                       $0.peripheralIdentifier == nil && $0.reportedDeviceID == reportedDeviceID
+                   }) {
                     return false
                 }
 
@@ -250,7 +322,11 @@ final class RetroSmartBLEManager: NSObject, ObservableObject {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    private func resolvedConnectionState(for peripheralID: UUID?, deviceID: String) -> DeviceConnectionState {
+    private func resolvedConnectionState(
+        for peripheralID: UUID?,
+        deviceID: String,
+        reportedDeviceID: String
+    ) -> DeviceConnectionState {
         guard let peripheralID, let context = peripheralContexts[peripheralID] else {
             return .disconnected
         }
@@ -259,7 +335,8 @@ final class RetroSmartBLEManager: NSObject, ObservableObject {
             return .connecting
         }
 
-        if context.peripheral.state == .connected, context.identityPayload?.deviceID == deviceID {
+        if context.peripheral.state == .connected,
+           self.deviceID(for: peripheralID, reportedDeviceID: context.identityPayload?.deviceID ?? reportedDeviceID) == deviceID {
             return .connected
         }
 
@@ -279,8 +356,8 @@ final class RetroSmartBLEManager: NSObject, ObservableObject {
     }
 
     private func updateConnectionState(for peripheralID: UUID, to state: DeviceConnectionState) {
-        if let deviceID = peripheralContexts[peripheralID]?.identityPayload?.deviceID {
-            connectionStates[deviceID] = state
+        if let reportedDeviceID = peripheralContexts[peripheralID]?.identityPayload?.deviceID {
+            connectionStates[deviceID(for: peripheralID, reportedDeviceID: reportedDeviceID)] = state
             return
         }
 
@@ -514,12 +591,14 @@ extension RetroSmartBLEManager: CBPeripheralDelegate {
                     context.identityPayload = identity
                     context.advertisedName = identity.model
                     self.peripheralContexts[peripheral.identifier] = context
-                    self.connectionStates[identity.deviceID] = .connected
+                    let deviceID = self.deviceID(for: peripheral.identifier, reportedDeviceID: identity.deviceID)
+                    self.connectionStates[deviceID] = .connected
                     self.updateNearbyList()
 
-                    if self.knownDevices[identity.deviceID] != nil {
-                        self.knownDevices[identity.deviceID] = KnownDeviceDescriptor(
-                            deviceID: identity.deviceID,
+                    if self.knownDevices[deviceID] != nil {
+                        self.knownDevices[deviceID] = KnownDeviceDescriptor(
+                            deviceID: deviceID,
+                            reportedDeviceID: identity.deviceID,
                             peripheralIdentifier: peripheral.identifier
                         )
                     }
@@ -539,10 +618,11 @@ extension RetroSmartBLEManager: CBPeripheralDelegate {
                 }
                 do {
                     let summary = try self.decoder.decode(CapabilitySummaryPayload.self, from: data)
-                    var state = self.liveStates[identity.deviceID] ?? LiveDeviceState()
+                    let deviceID = self.deviceID(for: peripheral.identifier, reportedDeviceID: identity.deviceID)
+                    var state = self.liveStates[deviceID] ?? LiveDeviceState()
                     state.lastCapabilitySummary = summary
-                    self.liveStates[identity.deviceID] = state
-                    self.connectionStates[identity.deviceID] = .connected
+                    self.liveStates[deviceID] = state
+                    self.connectionStates[deviceID] = .connected
                     self.appendDebug("Capabilities loaded for \(identity.deviceID)")
                 } catch {
                     self.appendDebug("Failed to decode capabilities for \(identity.deviceID): \(error.localizedDescription)")
@@ -553,11 +633,12 @@ extension RetroSmartBLEManager: CBPeripheralDelegate {
                 }
                 do {
                     let payload = try self.decoder.decode(StatePayload.self, from: data)
-                    var state = self.liveStates[identity.deviceID] ?? LiveDeviceState()
+                    let deviceID = self.deviceID(for: peripheral.identifier, reportedDeviceID: identity.deviceID)
+                    var state = self.liveStates[deviceID] ?? LiveDeviceState()
                     state.values = payload.flattenedValues
                     state.lastUpdate = .now
-                    self.liveStates[identity.deviceID] = state
-                    self.connectionStates[identity.deviceID] = .connected
+                    self.liveStates[deviceID] = state
+                    self.connectionStates[deviceID] = .connected
                     self.appendDebug("State update received for \(identity.deviceID)")
                 } catch {
                     self.appendDebug("Failed to decode state payload for \(identity.deviceID): \(error.localizedDescription)")

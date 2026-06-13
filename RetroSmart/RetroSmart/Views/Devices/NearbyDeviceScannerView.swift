@@ -1,8 +1,10 @@
 import SwiftUI
+import SwiftData
 
 struct NearbyDeviceScannerView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var appModel: AppModel
+    @Query(sort: [SortDescriptor(\DeviceRecord.insertionIndex, order: .forward)]) private var devices: [DeviceRecord]
 
     @State private var selectedDraft: DeviceOnboardingDraft?
     @State private var errorMessage: String?
@@ -105,9 +107,15 @@ struct NearbyDeviceScannerView: View {
 
         do {
             let resolved = try await appModel.bleManager.resolveNearbyDevice(for: peripheral.peripheralIdentifier)
+            let localDeviceID = DeviceRecord.localDeviceID(
+                reportedDeviceID: resolved.identity.deviceID,
+                peripheralIdentifier: resolved.peripheralIdentifier,
+                existingDevices: devices
+            )
             selectedDraft = DeviceOnboardingDraft(
                 peripheralIdentifier: resolved.peripheralIdentifier,
-                deviceID: resolved.identity.deviceID,
+                deviceID: localDeviceID,
+                reportedDeviceID: resolved.identity.deviceID,
                 advertisedTypeID: resolved.identity.deviceType,
                 modelName: resolved.identity.model,
                 firmwareVersion: resolved.identity.fwVersion,

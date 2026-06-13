@@ -189,7 +189,11 @@ struct DeviceSettingsView: View {
 
         do {
             try modelContext.save()
-            appModel.bleManager.markDeviceRemoved(deviceID: device.deviceID)
+            appModel.bleManager.markDeviceAdded(
+                deviceID: device.deviceID,
+                reportedDeviceID: device.firmwareReportedDeviceID,
+                peripheralIdentifier: device.peripheralIdentifier.flatMap(UUID.init(uuidString:))
+            )
             dismiss()
         } catch {
             errorMessage = error.localizedDescription

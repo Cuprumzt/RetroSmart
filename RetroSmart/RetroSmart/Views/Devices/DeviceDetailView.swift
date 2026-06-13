@@ -178,6 +178,9 @@ private struct DeviceTechnicalDetailsCard: View {
                 }
 
                 LabeledContent("Device ID", value: device.deviceID)
+                if device.firmwareReportedDeviceID != device.deviceID {
+                    LabeledContent("Firmware Device ID", value: device.firmwareReportedDeviceID)
+                }
                 LabeledContent("Module Type", value: typeLabel)
                 LabeledContent("Advertised Type", value: device.advertisedTypeID)
                 LabeledContent("Firmware", value: device.firmwareVersion)

@@ -72,6 +72,9 @@ struct DeviceOnboardingView: View {
             Section("Inspect") {
                 DisclosureGroup("Details", isExpanded: $showingTechnicalDetails) {
                     LabeledContent("Device ID", value: draft.deviceID)
+                    if draft.reportedDeviceID != draft.deviceID {
+                        LabeledContent("Firmware Device ID", value: draft.reportedDeviceID)
+                    }
                     LabeledContent("Advertised Type", value: draft.advertisedTypeID)
                     LabeledContent("Firmware", value: draft.firmwareVersion)
                 }
@@ -111,8 +114,9 @@ struct DeviceOnboardingView: View {
         let nextIndex = (devices.map(\.insertionIndex).max() ?? -1) + 1
         let record: DeviceRecord
 
-        if let existing = devices.first(where: { $0.deviceID == draft.deviceID }) {
+        if let existing = devices.first(where: { $0.peripheralIdentifier == draft.peripheralIdentifier.uuidString || $0.deviceID == draft.deviceID }) {
             existing.customName = trimmedName
+            existing.reportedDeviceID = draft.reportedDeviceID
             existing.iconSystemName = iconSystemName
             existing.assignedTypeID = assignedTypeID
             existing.advertisedTypeID = draft.advertisedTypeID
@@ -123,6 +127,7 @@ struct DeviceOnboardingView: View {
         } else {
             let newRecord = DeviceRecord(
                 deviceID: draft.deviceID,
+                reportedDeviceID: draft.reportedDeviceID,
                 customName: trimmedName,
                 iconSystemName: iconSystemName,
                 assignedTypeID: assignedTypeID,
@@ -140,6 +145,7 @@ struct DeviceOnboardingView: View {
             try modelContext.save()
             appModel.bleManager.markDeviceAdded(
                 deviceID: record.deviceID,
+                reportedDeviceID: record.firmwareReportedDeviceID,
                 peripheralIdentifier: draft.peripheralIdentifier
             )
             onSave()

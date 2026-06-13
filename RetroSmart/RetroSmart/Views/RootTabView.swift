@@ -18,7 +18,7 @@ struct RootTabView: View {
 
     private var syncToken: String {
         let deviceToken = devices
-            .map { "\($0.deviceID)|\($0.assignedTypeID)|\($0.peripheralIdentifier ?? "")|\($0.customName)" }
+            .map { "\($0.deviceID)|\($0.firmwareReportedDeviceID)|\($0.assignedTypeID)|\($0.peripheralIdentifier ?? "")|\($0.customName)" }
             .joined(separator: ";")
         let configToken = importedConfigs
             .map { "\($0.typeID)|\($0.importedAt.timeIntervalSince1970)" }

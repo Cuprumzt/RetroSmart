@@ -4,6 +4,7 @@ import SwiftData
 @Model
 final class DeviceRecord {
     @Attribute(.unique) var deviceID: String
+    var reportedDeviceID: String?
     var customName: String
     var iconSystemName: String
     var assignedTypeID: String
@@ -17,6 +18,7 @@ final class DeviceRecord {
 
     init(
         deviceID: String,
+        reportedDeviceID: String? = nil,
         customName: String,
         iconSystemName: String,
         assignedTypeID: String,
@@ -29,6 +31,7 @@ final class DeviceRecord {
         insertionIndex: Int
     ) {
         self.deviceID = deviceID
+        self.reportedDeviceID = reportedDeviceID
         self.customName = customName
         self.iconSystemName = iconSystemName
         self.assignedTypeID = assignedTypeID
@@ -39,6 +42,41 @@ final class DeviceRecord {
         self.addedAt = addedAt
         self.lastSeenAt = lastSeenAt
         self.insertionIndex = insertionIndex
+    }
+}
+
+extension DeviceRecord {
+    var firmwareReportedDeviceID: String {
+        guard let reportedDeviceID, !reportedDeviceID.isEmpty else {
+            return deviceID
+        }
+
+        return reportedDeviceID
+    }
+
+    static func localDeviceID(
+        reportedDeviceID: String,
+        peripheralIdentifier: UUID,
+        existingDevices: [DeviceRecord]
+    ) -> String {
+        let peripheralID = peripheralIdentifier.uuidString
+
+        if let existing = existingDevices.first(where: { $0.peripheralIdentifier == peripheralID }) {
+            return existing.deviceID
+        }
+
+        guard existingDevices.contains(where: { $0.deviceID == reportedDeviceID }) else {
+            return reportedDeviceID
+        }
+
+        let shortPeripheralID = String(peripheralID.prefix(8))
+        let candidate = "\(reportedDeviceID)-\(shortPeripheralID)"
+
+        if existingDevices.contains(where: { $0.deviceID == candidate }) {
+            return "\(reportedDeviceID)-\(peripheralID)"
+        }
+
+        return candidate
     }
 }
 
